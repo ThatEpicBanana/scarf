@@ -1,3 +1,6 @@
 [submodule "parser"]
 	path = parser
 	url = ./parser
+[submodule "error"]
+	path = error
+	url = ./error
