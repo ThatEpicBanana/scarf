@@ -4,3 +4,6 @@
 [submodule "error"]
 	path = error
 	url = ./error
+[submodule "scarfc"]
+	path = scarfc
+	url = ./scarfc
