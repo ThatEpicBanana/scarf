@@ -1,6 +1,6 @@
 [submodule "parser"]
 	path = parser
-	url = ./parser
+	url = https://github.com/ThatEpicBanana/parser
 [submodule "error"]
 	path = error
 	url = ./error
