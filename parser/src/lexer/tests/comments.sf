@@ -1,0 +1,35 @@
+/*
+    outside /*
+        // yep comments
+    */ and here too
+
+    /*
+        here's another
+    */
+*/
+
+// inline woo
+
+token here
+
+/* not here */
+
+/**/ // these shouldn't exist
+/***/
+
+these /* */ should though
+
+/// this is a doc comment
+/// this should be concatenated
+
+//! inner comment
+
+/**
+outer block comment
+
+\*/ with escape
+
+*/
+
+/*! inner block comment */
+

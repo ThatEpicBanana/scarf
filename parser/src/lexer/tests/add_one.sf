@@ -1,0 +1,4 @@
+//! crate about arithmetic idk
+
+/// Adds one to the given number
+pub func add_one(x: int) => x + 1;

@@ -1,0 +1,5 @@
+#![doc = "doc comment"]
+
+//! also doc comment
+
+#![thate:raycast.idk(pog, class)]

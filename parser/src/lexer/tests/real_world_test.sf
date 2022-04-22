@@ -1,0 +1,6 @@
+// main function
+pub func main() {
+    // clears tnt from everyone
+    as @a:
+        clear("tnt"id);
+}
