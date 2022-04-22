@@ -1,8 +1,8 @@
 // i'm sorry
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
-#![allow(unused_variables)]
 #![allow(non_upper_case_globals)]
+#![allow(unused_variables)]
 
 macro_rules! op_macro {
     {
