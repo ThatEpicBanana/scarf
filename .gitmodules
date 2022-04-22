@@ -4,6 +4,3 @@
 [submodule "error"]
 	path = error
 	url = ./error
-[submodule "scarfc"]
-	path = scarfc
-	url = https://github.com/ThatEpicBanana/scarfc
