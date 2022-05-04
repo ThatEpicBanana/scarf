@@ -1,14 +1,25 @@
 use chumsky::prelude::*;
 use crate::lexer::prelude::*;
 
-//TODO: doc comments
+fn until_end() -> impl Parser<char, (Vec<char>, ()), Error = Simple<char>> + Clone {
+    take_until(
+        just("\r\n")
+        .or(just("\n"))
+            .ignored()
+        .or(end().rewind())
+    )
+}
+
+fn until_end_collect() -> impl Parser<char, String, Error = Simple<char>> {
+    until_end()
+        .map(|(string, _)| string)
+        .collect::<String>()
+}
+
 pub fn comment() -> impl Parser<char, (), Error = Simple<char>> + Clone {
     let single = just("//")
         .then(none_of("/!"))
-        .then(take_until(
-            just("\r\n")
-            .or(just("\n"))
-        )).padded();
+        .then(until_end()).padded();
 
     let multi = just("/*").then(
         none_of("*!").ignored()
@@ -36,21 +47,14 @@ pub fn comment() -> impl Parser<char, (), Error = Simple<char>> + Clone {
 }
 
 pub fn doc_comment() -> impl Parser<char, Token, Error = Simple<char>> {
-    let until_end = 
-        take_until(
-            just("\r\n")
-            .or(just("\n"))
-        ).map(|(string, _)| string)
-        .collect::<String>();
-
     let single = just("//")
         .ignore_then( // check if inner or not
                 just("!")
             .or(just("/"))
         ).then_with(move |inner| 
-            until_end.then( // save until end
+            until_end_collect().then( // save until end
                 just("//".to_string() + inner) // check for repeats
-                    .ignore_then(until_end)
+                    .ignore_then(until_end_collect())
                     .repeated()
             ).foldl(|left, right| left + "\n" + &right) // concatenate repeats 
             .map(move |com| (com, inner)) // add inner back
