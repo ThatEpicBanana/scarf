@@ -152,4 +152,12 @@ pub fn create() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .map_with_span(|token, span| (token, span))
         .padded().repeated()
         .then_ignore(end())
+
+    // token
+    //     .map_with_span(|token, span| (token, span))
+    //     .padded().repeated()
+    //     .separated_by(comment().repeated())
+    //         .allow_leading().allow_trailing()
+    //     .flatten()
+    //     .then_ignore(end())
 }

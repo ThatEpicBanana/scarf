@@ -1,16 +1,20 @@
-use std::ops::Deref;
+use std::{ops::Deref, fmt};
 
 use crate::parser::prelude::*;
 
 /// A struct that holds some extra information about a string
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Ident {
-    pub(crate) id: String,
-}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Ident(String);
 
 impl Ident {
     pub fn new(id: String) -> Ident {
-        Ident{id}
+        Ident(id)
+    }
+}
+
+impl fmt::Debug for Ident {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "\"{}\"id", &self.0)
     }
 }
 
@@ -18,7 +22,7 @@ impl Deref for Ident {
     type Target = String;
 
     fn deref(&self) -> &String {
-        &self.id
+        &self.0
     }
 }
 

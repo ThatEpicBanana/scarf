@@ -84,7 +84,7 @@ impl TokenGroup {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Delimiter {
     Curly,
-    Parantheses,
+    Parentheses,
     Square,
     // Angle,
 }
@@ -130,7 +130,7 @@ pub fn token_group() -> impl Parser<Token, Opt<TokenGroup>, Error = Simple<Token
             group.clone(), 
             OP_LPARA, OP_RPARA, 
             [(OP_LCURLY, OP_RCURLY), (OP_LSQUARE, OP_RSQUARE), (OP_LANGLE, OP_RANGLE)], 
-            Delimiter::Parantheses
+            Delimiter::Parentheses
         ),
         token_group_inner(
             group.clone(), 

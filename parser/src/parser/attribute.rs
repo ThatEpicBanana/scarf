@@ -51,7 +51,12 @@ fn attribute_inner() -> impl Parser<Token, (Path, TokenStream), Error = Simple<T
 }
 
 pub fn outer_attribute() -> impl Parser<Token, Opt<Attribute>, Error = Simple<Token>> {
-    just(OP_HASH).ignore_then(just(OP_LSQUARE)
+    just(OP_HASH)
+    // make sure it's not inner to make sure recover doesn't mess up
+    .then_ignore(none_of(OP_EXCLAMATION).rewind()) 
+    // rest of attribute
+    .ignore_then(
+        just(OP_LSQUARE)
         .ignore_then(attribute_inner())
         .map(|(path, token_stream)| Ok(Attribute::outer(path, token_stream)))
         .recover_with(nested_delimiters(
@@ -63,7 +68,8 @@ pub fn outer_attribute() -> impl Parser<Token, Opt<Attribute>, Error = Simple<To
 }
 
 pub fn inner_attribute() -> impl Parser<Token, Opt<Attribute>, Error = Simple<Token>> {
-    just([OP_HASH, OP_EXCLAMATION]).ignore_then(just(OP_LSQUARE)
+    just([OP_HASH, OP_EXCLAMATION]).ignore_then(
+        just(OP_LSQUARE)
         .ignore_then(attribute_inner())
         .map(|(path, token_stream)| Ok(Attribute::inner(path, token_stream)))
         .recover_with(nested_delimiters(

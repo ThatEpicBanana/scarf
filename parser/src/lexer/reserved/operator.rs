@@ -112,7 +112,7 @@ op_macro!{
     bottom {
         // other / in multiple
         OP_COLON = ":", OP_DOUBLE_COLON = "::",
-        OP_DOUBLE_DOT = "..", OP_TRIPLE_DOT = "...",
+        // OP_DOUBLE_DOT = "..", OP_TRIPLE_DOT = "...",
         OP_BAR = "|",
         OP_AT = "@", OP_BACKTICK = "`",
     
@@ -148,6 +148,6 @@ op_macro!{
         OP_OR = "||",
     
         // pattern
-        OP_WILDCARD = "_",
+        OP_UNDER = "_",
     }
 }

@@ -50,6 +50,7 @@ kw_macro!{
     KW_ENTITY = "entity",
     KW_BLOCK = "block",
     // items
+    KW_EXT = "ext", KW_STAT = "stat", KW_ABST = "abst", 
     KW_MOD = "mod",
     KW_CLASS = "class", KW_EXTENDS = "extends",
     KW_ENUM = "enum",
