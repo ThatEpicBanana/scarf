@@ -60,43 +60,37 @@ fn inner_attributes() {
     use attribute::Attribute;
     use macros::TokenStream;
 
-    test_parser(include_str!("inner_attributes.sf"), attribute::inner_attribute().repeated().then_ignore(end()), vec![
-
-    ], HashMap::new())
-
-    // test(include_str!("inner_attributes.sf"), vec![
-    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-    //         Path::from("doc"), 
-    //         TokenStream::single(string("doc comment").into())
-    //     )))),
-    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-    //         Path::from(vec!["doc".into()]), 
-    //         TokenStream::single(doc_in(" also doc comment").into())
-    //     )))),
-    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-    //         Path::from(vec![
-    //             "thate".into(),
-    //             "raycast".into(),
-    //             "idk".into()
-    //         ]),
-    //         TokenStream::single(
-    //             TokenGroup::new(
-    //                 TokenStream::from(vec![
-    //                     id("pog"),
-    //                     OP_COMM,
-    //                     KW_CLASS
-    //                 ]),
-    //                 Delimiter::Parentheses
-    //             ).into()
-    //         )
-    //     )))),
-    //     Item::simple(span(
-    //         ItemVariant::InnerAttribute(
-                
-    //         ),
-
-    //     ))
-    // ])
+    test_parser(include_str!("inner_attributes.sf"), 
+        attribute::inner_attribute().repeated().then_ignore(end()), 
+        vec![
+            // -- #![doc = "doc comment"]
+            ok_span(Attribute::new_inner(
+                Path::from_offset_string(3, "doc"), //TODO: add tests for path parser
+                span(vec![(string("doc comment"), 9..22)], 7..22)
+            ), 2..23),
+            // -- //! also doc comment
+            ok_span(Attribute::inner_doc(
+                span(vec![(doc_in(" also doc comment"), 27..49)], 27..49)
+            ), 27..49),
+            // -- #![thate:raycast.idk(pog, class)]
+            ok_span(Attribute::new_inner(
+                Path::from_offset_string(54, "thate:raycast.idk"), 
+                span(vec![
+                    (OP_LPARA, 71..72),
+                        (id("pog"), 72..75),
+                        (OP_COMM, 75..76),
+                        (KW_CLASS, 77..82),
+                    (OP_RPARA, 82..83),
+                ], 71..83),
+            ), 53..84),
+            // -- //! doc comment
+            // -- //! with lines
+            ok_span(Attribute::inner_doc(
+                span(vec![(doc_in(" doc comment\n with lines"), 88..119)], 88..119)
+            ), 88..119),
+        ], 
+        HashMap::new()
+    );
 }
 
 #[test]

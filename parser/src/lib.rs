@@ -32,6 +32,9 @@ impl<T> Spanned<T> {
     pub fn span(&self) -> Option<Span> {
         self.1.clone()
     }
+
+    pub fn      value(&self) -> &T { &self.0 }
+    pub fn take_value( self) ->  T {  self.0 }
     
     /// Creates a [`Spanned`] from a given value and optional span
     pub fn new(value: T, span: Option<Span>) -> Self {
@@ -54,7 +57,7 @@ impl<T> Deref for Spanned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.value()
     }
 }
 
