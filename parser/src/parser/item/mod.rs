@@ -4,7 +4,7 @@ pub use attribute::inner_attribute;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ItemVariant {
-    InnerAttribute(Opt<attribute::Attribute>),
+    InnerAttribute(S<Opt<attribute::Attribute>>),
     Error,
 }
 
@@ -40,9 +40,9 @@ impl ItemVariant {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Item {
-    variant: ItemVariant,
-    attributes: Vec<Opt<attribute::Attribute>>,
-    visibility: Visibility,
+    variant: S<ItemVariant>,
+    attributes: Vec<S<Opt<attribute::Attribute>>>,
+    visibility: S<Visibility>,
 
     ext: bool, // external
     stat: bool, // static
@@ -51,39 +51,39 @@ pub struct Item {
 
 impl Item {
     pub fn new(
-        variant: ItemVariant, attributes: Vec<Opt<attribute::Attribute>>, visibility: Visibility, 
+        variant: S<ItemVariant>, attributes: Vec<S<Opt<attribute::Attribute>>>, visibility: S<Visibility>, 
         ext: bool, stat: bool, abst: bool
     ) -> Self {
         Item { variant, attributes, visibility, ext, stat, abst }
     }
 
     /// Creates a new private [`Item`] with no special flags or attributes
-    pub fn simple(variant: ItemVariant) -> Self {
-        Self::new(variant, vec![], Visibility::Prv, false, false, false)
+    pub fn simple(variant: S<ItemVariant>) -> Self {
+        Self::new(variant, vec![], no_span(Visibility::Prv), false, false, false)
     }
 
     /// Creates a new [`Item`] with a given [`Visibility`], but no other flags or attributes
-    pub fn with_visibility(variant: ItemVariant, visibility: Visibility) -> Self {
+    pub fn with_visibility(variant: S<ItemVariant>, visibility: S<Visibility>) -> Self {
         Self::new(variant, vec![], visibility, false, false, false)
     }
 }
 
-impl From<ItemVariant> for Item {
-    fn from(variant: ItemVariant) -> Self {
+impl From<S<ItemVariant>> for Item {
+    fn from(variant: S<ItemVariant>) -> Self {
         Item::simple(variant)
     }
 }
 
 
-pub fn item_variant() -> impl Parser<Token, ItemVariant, Error = Simple<Token>> {
+pub fn item_variant() -> impl Parser<Token, S<ItemVariant>, Error = Simple<Token>> {
     choice((
         inner_attribute().map(ItemVariant::InnerAttribute),
-    ))
+    )).map_with_span(span)
 }
 
 pub fn item() -> impl Parser<Token, Item, Error = Simple<Token>> {
     inner_attribute()
-        .map(|attribute| Item::simple(ItemVariant::InnerAttribute(attribute)))
+        .map_with_span(|attribute, spn| Item::simple(span(ItemVariant::InnerAttribute(attribute), spn)))
     .or(attribute::outer_attribute().repeated()
         .then(visibility())
         .then(

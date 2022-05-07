@@ -14,7 +14,7 @@ fn test(source: &str, expected: Vec<Item>) {
     assert_eq!(out.unwrap(), expected);
 }
 
-fn test_parser<T>(parser: impl Parser<Token, Vec<T>, Error = Simple<Token>>, input: &str, expected: Vec<T>, expected_errors: HashMap<Span, Option<Token>>) 
+fn test_parser<T>(input: &str, parser: impl Parser<Token, T, Error = Simple<Token>>, expected: T, expected_errors: HashMap<Span, Option<Token>>) 
 where T: PartialEq + Eq + Debug + Clone {
     let len = input.len();
 
@@ -34,8 +34,8 @@ where T: PartialEq + Eq + Debug + Clone {
     };
 
     match parser_errors.len().cmp(&expected_errors.len()) {
-        Ordering::Less => panic!("Not Enough Parser Errors Found (Expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
-        Ordering::Greater => panic!("Too Many Parser Errors Found (Expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
+        Ordering::Less => panic!("Not enough parser errors found (expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
+        Ordering::Greater => panic!("Too many parser errors found (expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
         _ => (),
     }
 
@@ -58,47 +58,64 @@ where T: PartialEq + Eq + Debug + Clone {
 #[test]
 fn inner_attributes() {
     use attribute::Attribute;
-    use macros::{TokenStream, TokenGroup, Delimiter};
+    use macros::TokenStream;
 
-    test(include_str!("inner_attributes.sf"), vec![
-        Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-            Path::from("doc"), 
-            TokenStream::single(string("doc comment").into())
-        )))),
-        Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-            Path::from(vec!["doc".into()]), 
-            TokenStream::single(doc_in(" also doc comment").into())
-        )))),
-        Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
-            Path::from(vec![
-                "thate".into(),
-                "raycast".into(),
-                "idk".into()
-            ]),
-            TokenStream::single(
-                TokenGroup::new(
-                    TokenStream::from(vec![
-                        id("pog"),
-                        OP_COMM,
-                        KW_CLASS
-                    ]),
-                    Delimiter::Parentheses
-                ).into()
-            )
-        )))),
-    ])
+    test_parser(include_str!("inner_attributes.sf"), attribute::inner_attribute().repeated().then_ignore(end()), vec![
+
+    ], HashMap::new())
+
+    // test(include_str!("inner_attributes.sf"), vec![
+    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
+    //         Path::from("doc"), 
+    //         TokenStream::single(string("doc comment").into())
+    //     )))),
+    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
+    //         Path::from(vec!["doc".into()]), 
+    //         TokenStream::single(doc_in(" also doc comment").into())
+    //     )))),
+    //     Item::simple(ItemVariant::InnerAttribute(Ok(Attribute::inner(
+    //         Path::from(vec![
+    //             "thate".into(),
+    //             "raycast".into(),
+    //             "idk".into()
+    //         ]),
+    //         TokenStream::single(
+    //             TokenGroup::new(
+    //                 TokenStream::from(vec![
+    //                     id("pog"),
+    //                     OP_COMM,
+    //                     KW_CLASS
+    //                 ]),
+    //                 Delimiter::Parentheses
+    //             ).into()
+    //         )
+    //     )))),
+    //     Item::simple(span(
+    //         ItemVariant::InnerAttribute(
+                
+    //         ),
+
+    //     ))
+    // ])
 }
 
 #[test]
 fn patterns() {
     // test_parser(pattern::test().repeated().then_ignore(end()), include_str!("patterns.sf"), vec![]);
-    test_parser(pattern::pattern().repeated().then_ignore(end()), include_str!("patterns.sf"), 
+    test_parser(include_str!("patterns.sf"), 
+        pattern::pattern()
+            // // useful for debugging, but breaks parser and adds an error at the end
+            // .map_with_span(ok_span)
+            // .recover_with(skip_until([OP_SEMI], err_span))
+            .separated_by(just(OP_SEMI)).allow_trailing()
+            .then_ignore(end()),  
         vec![
             // omitted because of soon refactor
+            // try to make sure this isn't that hard to do by making functions
         ], 
         HashMap::from([
-            (282..283, Some(OP_STAR)),
-            (346..347, Some(OP_STAR)),
+            (283..284, Some(OP_STAR)),
+            (348..349, Some(OP_STAR)),
         ])
     );
 }

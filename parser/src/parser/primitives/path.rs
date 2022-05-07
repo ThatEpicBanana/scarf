@@ -23,13 +23,13 @@ impl From<&str> for PathPart {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Path {
-    pub root: PathRoot,
-    pub parts: Vec<PathPart>,
+    pub root: S<PathRoot>,
+    pub parts: Vec<S<PathPart>>,
 }
 
 impl Path {
     /// Outputs a path of the given root and parts
-    pub fn new(root: PathRoot, parts: Vec<PathPart>) -> Path {
+    pub fn new(root: S<PathRoot>, parts: Vec<S<PathPart>>) -> Path {
         Path { root, parts }
     }
 
@@ -42,8 +42,8 @@ impl Path {
         let mut parts = parts.into_iter();
 
         Path { 
-            root: PathRoot::Part(parts.next().expect("List given must have at least one element!")),
-            parts: parts.collect(),
+            root: no_span(PathRoot::Part(parts.next().expect("List given must have at least one element!"))),
+            parts: parts.map(no_span).collect(),
         }
     }
 }
@@ -55,12 +55,7 @@ impl From<Vec<PathPart>> for Path {
     /// 
     /// - If the list has less than one element
     fn from(parts: Vec<PathPart>) -> Path {
-        let mut parts = parts.into_iter();
-
-        Path { 
-            root: PathRoot::Part(parts.next().expect("List given must have at least one element!")),
-            parts: parts.collect(),
-        }
+        Path::parts(parts)
     }
 }
 
@@ -72,6 +67,7 @@ fn string_to_path_part(string: &str) -> PathPart {
     }
 }
 
+//TODO: convert this to using an actual parser
 impl From<&str> for Path {
     /// Converts a string into a path
     /// 
@@ -108,8 +104,7 @@ impl From<&str> for Path {
             _ => panic!("String length returned an illegal number somehow")
         };
 
-        let mut parts = vec![];
-
+        
         // get root
         let root = match list.next() {
             Some("this") => PathRoot::This,
@@ -117,29 +112,48 @@ impl From<&str> for Path {
             Some(x) => PathRoot::Part(string_to_path_part(x)),
             None => panic!(), // shouldn't be possible
         };
-
-        // convert parts to PathParts
-        for part in list {
-            parts.push(string_to_path_part(part));
-        }
+        
+        let parts = list
+            .map(string_to_path_part)
+            .map(no_span)
+            .collect();
 
         // return
-        Path { root, parts }
+        Path { root: no_span(root), parts }
     }
 }
 
-fn path_part() -> impl Parser<Token, PathPart, Error = Simple<Token>> {
-    just(KW_SUPER).to(PathPart::Super)
-        .or(just(KW_SELF).to(PathPart::Selff))
-        .or(ident::ident().map(|idt| PathPart::Id(idt)))
+fn path_root() -> impl Parser<Token, S<PathRoot>, Error = Simple<Token>> {
+    just(KW_BASKET).to(PathRoot::Basket)
+    .or(just(KW_THIS).to(PathRoot::This))
+        .map_with_span(span)
+    .or(path_part().map(|Spanned(part, spn)| span(PathRoot::Part(part), spn.unwrap())))
+    .labelled("path root")
 }
 
-pub fn path() -> impl Parser<Token, Path, Error = Simple<Token>> {
-    // root
-    just(KW_BASKET).to(PathRoot::Basket)
-        .or(just(KW_THIS).to(PathRoot::This))
-        .or(path_part().map(PathRoot::Part))
-    .then(
+fn path_part() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> {
+    just(KW_SUPER).to(PathPart::Super)
+    .or(just(KW_SELF).to(PathPart::Selff))
+        .map_with_span(span)
+    .or(ident::ident().map(|Spanned(idt, spn)| span(PathPart::Id(idt), spn.unwrap())))
+    .labelled("path part")
+}
+
+//TODO: check if this actually works
+/// Parses into a [`Path`]
+/// 
+/// **Examples:**
+/// ```
+/// # use crate::parser::prelude::*;
+/// # use path::*;
+/// # use crate::tests::test_parser;
+/// # 
+/// # test_parser(path(), "
+/// this.x
+/// # ", Path::new(span(PathRoot::This, 1..5), vec![span(PathPart::Id("x".into()), 6..7)]))
+/// ```
+pub fn path() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
+    path_root().then(
         // optional : after the root
             just(OP_COLON)
                 .ignore_then(path_part())
@@ -149,13 +163,7 @@ pub fn path() -> impl Parser<Token, Path, Error = Simple<Token>> {
                 .ignore_then(path_part())
                 .repeated()
         )
-    ).map(|(root, parts)| Path{root, parts}) // map to path
+    ).labelled("path")
+    .map(|(root, parts)| Path{root, parts}) // map to path
+    .map_with_span(span)
 }
-
-
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::prelude::*;
-// }

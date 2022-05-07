@@ -42,7 +42,12 @@ impl From<&str> for Ident {
     }
 }
 
-pub fn ident() -> impl Parser<Token, Ident, Error = Simple<Token>> {
+/// Parses a single [`IDENTIFIER`] into an [`Ident`]
+/// 
+/// Automatically [`Spanned`].
+pub fn ident() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
     filter(|tok| matches!(tok, IDENTIFIER(_)))
+        .labelled("ident")
         .map(|tok| tok.into())
+        .map_with_span(span)
 }

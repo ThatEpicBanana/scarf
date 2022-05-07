@@ -148,8 +148,8 @@ pub fn create() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         ).recover_with(skip_then_retry_until([]));
 
     token
-        .padded_by(comment().repeated())
         .map_with_span(|token, span| (token, span))
+        .padded_by(comment().repeated())
         .padded().repeated()
         .then_ignore(end())
 

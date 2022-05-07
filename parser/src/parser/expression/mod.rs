@@ -7,6 +7,8 @@ pub enum Expression {
     Temp,
 }
 
-pub fn expression() -> impl Parser<Token, Expression, Error = Simple<Token>> {
+pub fn expression() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {
     any().to(Expression::Temp)
+        .labelled("expression")
+        .map_with_span(span)
 }

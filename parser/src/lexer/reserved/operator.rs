@@ -148,6 +148,6 @@ op_macro!{
         OP_OR = "||",
     
         // pattern
-        OP_UNDER = "_",
+        // OP_UNDER = "_",
     }
 }

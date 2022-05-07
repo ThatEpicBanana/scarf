@@ -1,8 +1,14 @@
 pub use crate::{
     Opt::{self, Ok, Err}, Span,
+    Spanned, S,
+    // utility functions
+    span, no_span, ok_span, err_span,
+
     lexer::prelude::*,
+
     parser::{
         *,
+        typ::Type,
         item::{
             Item,
             ItemVariant,
@@ -11,7 +17,6 @@ pub use crate::{
             *,
             ident::Ident,
             path::Path,
-            typ::Type,
         },
         expression::{
             Expression,
