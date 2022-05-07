@@ -1,3 +1,5 @@
+use chumsky::Stream;
+
 use crate::prelude::*;
 use std::iter;
 
@@ -35,7 +37,7 @@ impl Path {
 
     /// Turns a vector of parts into a path, with the first part as the root
     /// 
-    /// # Panics
+    /// ### Panics
     /// 
     /// - If the list has less than one element
     pub fn parts(parts: Vec<PathPart>) -> Path {
@@ -46,12 +48,41 @@ impl Path {
             parts: parts.map(no_span).collect(),
         }
     }
+
+    /// Converts a string into a path with spans offset by a set amount
+    /// 
+    /// This was mainly made for tests, but it might be useful elsewhere.
+    /// 
+    /// ### Example:
+    /// 
+    /// ```
+    /// # use crate::parser::prelude::*;
+    /// # use path::*;
+    /// assert_eq!(
+    ///     Path::from_offset_string("this.x", 10), 
+    ///     Path::new(
+    ///         span(PathRoot::This, 10..14), 
+    ///         vec![span(PathPart::Id(Ident::new("x")), 15..16)]
+    ///     )
+    /// );
+    /// ```
+    /// 
+    /// ### Panics:
+    /// 
+    /// The same as `<Path as From<&str>>::from`
+    pub fn from_offset_string(offset: usize, string: &str) -> S<Path> {
+        let string: String = 
+            iter::repeat(' ').take(offset) // add `offset` spaces
+            .chain(string.chars()).collect();   // to start of string
+
+        string.as_str().into()
+    }
 }
 
 impl From<Vec<PathPart>> for Path {
     /// Turns a vector of parts into a path, with the first part as the root
     /// 
-    /// # Panics
+    /// ### Panics
     /// 
     /// - If the list has less than one element
     fn from(parts: Vec<PathPart>) -> Path {
@@ -67,59 +98,24 @@ fn string_to_path_part(string: &str) -> PathPart {
     }
 }
 
-//TODO: convert this to using an actual parser
-impl From<&str> for Path {
+impl From<&str> for S<Path> {
     /// Converts a string into a path
     /// 
-    /// # Panics
+    /// ### Panics
     /// 
-    /// - If the string is empty
-    /// - If the string has more than one colon
-    fn from(string: &str) -> Path {
-        let mut list: Vec<_> = string.split(":").collect();
+    /// - If the lexer or parser fails
+    ///     - If there is more than one colon
+    ///     - If there any tokens other than identifiers, `:`s, or `.`s
+    ///     - If operators are doubled up
+    ///     - etc
+    fn from(string: &str) -> S<Path> {
+        let len = string.len();
 
-        // handle optional colon
-        let mut list: Box<dyn Iterator<Item = &str>> = match list.len() {
-            0 => panic!("String being converted into path is empty!"),
-            1 => {
-                Box::new(
-                    list.pop()
-                        .unwrap()
-                        .split(".")
-                )
-            }, 
-            2 => {
-                Box::new(
-                    iter::once(
-                        list.pop() // index 0
-                            .unwrap()
-                    ).chain(
-                        list.pop() // index 1
-                            .unwrap()
-                            .split(".")
-                    )
-                )
-            },
-            3.. => panic!("String being converted into path has more than one colon (:)!"),
-            _ => panic!("String length returned an illegal number somehow")
-        };
-
-        
-        // get root
-        let root = match list.next() {
-            Some("this") => PathRoot::This,
-            Some("basket") => PathRoot::Basket,
-            Some(x) => PathRoot::Part(string_to_path_part(x)),
-            None => panic!(), // shouldn't be possible
-        };
-        
-        let parts = list
-            .map(string_to_path_part)
-            .map(no_span)
-            .collect();
-
-        // return
-        Path { root: no_span(root), parts }
+        path().parse(Stream::from_iter(len..len+1,
+            crate::lexer::create().parse(
+                string
+            ).expect("Failed to lex path!").into_iter()
+        )).expect("Failed to parse path!")
     }
 }
 
