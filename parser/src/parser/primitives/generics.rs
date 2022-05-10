@@ -48,7 +48,7 @@ impl GenericArguments {
         .delimited_by(just(OP_LANGLE), just(OP_RANGLE))
                 // map
                 .map(GenericArguments::new)
-                .map_with_span(ok_span)
+                .map_with_span(map_ok_span)
                     .recover_with(nested_delimiters(OP_LANGLE, OP_RANGLE, [], err_span))
     }
 }

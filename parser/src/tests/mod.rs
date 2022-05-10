@@ -1,4 +1,4 @@
-use crate::parser::prelude::*;
+use crate::parser::prelude::{*, pattern::SinglePattern};
 
 use chumsky::{Stream, error::SimpleReason};
 use std::{fmt::Debug, collections::HashMap, cmp::Ordering};
@@ -67,18 +67,18 @@ fn inner_attributes() {
         attribute::inner_attribute().repeated().then_ignore(end()), 
         vec![
             // -- #![doc = "doc comment"]
-            ok_span(Attribute::new_inner(
+            map_ok_span(Attribute::new_inner(
                 Path::from_offset_string(3, "doc"), //TODO: add tests for path parser
-                span(vec![(string("doc comment"), 9..22)], 7..22)
+                map_span(vec![(string("doc comment"), 9..22)], 7..22)
             ), 2..23),
             // -- //! also doc comment
-            ok_span(Attribute::inner_doc(
-                span(vec![(doc_in(" also doc comment"), 27..49)], 27..49)
+            map_ok_span(Attribute::inner_doc(
+                map_span(vec![(doc_in(" also doc comment"), 27..49)], 27..49)
             ), 27..49),
             // -- #![thate:raycast.idk(pog, class)]
-            ok_span(Attribute::new_inner(
+            map_ok_span(Attribute::new_inner(
                 Path::from_offset_string(54, "thate:raycast.idk"), 
-                span(vec![
+                map_span(vec![
                     (OP_LPARA, 71..72),
                         (id("pog"), 72..75),
                         (OP_COMM, 75..76),
@@ -88,8 +88,8 @@ fn inner_attributes() {
             ), 53..84),
             // -- //! doc comment
             // -- //! with lines
-            ok_span(Attribute::inner_doc(
-                span(vec![(doc_in(" doc comment\n with lines"), 88..119)], 88..119)
+            map_ok_span(Attribute::inner_doc(
+                map_span(vec![(doc_in(" doc comment\n with lines"), 88..119)], 88..119)
             ), 88..119),
         ], 
         HashMap::new()
@@ -98,8 +98,10 @@ fn inner_attributes() {
 
 #[test]
 fn patterns() {
+    use pattern::{*, CompoundPatternField::*};
+
     test_parser(include_str!("patterns.sf"), 
-        pattern::pattern()
+        SinglePattern::parser()
             // // useful for debugging, but breaks parser and adds an error at the end
             // .map_with_span(ok_span)
             // .recover_with(skip_until([OP_SEMI], err_span))
@@ -107,7 +109,11 @@ fn patterns() {
             .then_ignore(end()),  
         vec![
             // real world
-
+            // span(15..208, SinglePattern::from(
+            //     DataPattern::Compound(ok_span(15..208, vec![
+            //         span(22..24, Simple(span(22..24, Ident::from("id")).into()))
+            //     ]))
+            // ))
         ], 
         HashMap::from([
             (286..287, (SimpleReason::Unexpected, Some(OP_STAR))),

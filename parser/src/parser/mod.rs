@@ -85,14 +85,14 @@ impl<T> From<Spanned<T>> for Spanned<Opt<T>> {
 /// 
 /// Designed to be used with [map_with_span](chumsky::Parser::map_with_span)
 pub fn map_span<T>(value: T, spn: Span) -> Spanned<T> {
-    span(spn, value)
+    Spanned::spanned(value, spn)
 }
 
 /// Utility function to create a [`Spanned`] from a value and some span
 /// 
 /// Alternative to [`map_span`] for readability
 pub fn span<T>(spn: Span, value: T) -> Spanned<T> {
-    Spanned::spanned(value, spn)
+    map_span(value, spn)
 }
 
 /// Utility function to create a [`Spanned`] from a value and no span
@@ -147,7 +147,14 @@ impl<T> Deref for Opt<T> {
 /// Utility function to create an [`Ok`](Opt::Ok) [`Spanned<Opt<T>>`] from a value and span
 /// 
 /// Designed to be used with [`map_with_span`](chumsky::Parser::map_with_span)
-pub fn ok_span<T>(value: T, span: Span) -> Spanned<Opt<T>> {
+pub fn map_ok_span<T>(value: T, span: Span) -> Spanned<Opt<T>> {
+    self::map_span(Opt::Ok(value), span)
+}
+
+/// Utility function to create a [`Spanned`] from a value and some span
+/// 
+/// Alternative to [`map_ok_span`] for readability
+pub fn ok_span<T>(span: Span, value: T) -> Spanned<Opt<T>> {
     self::map_span(Opt::Ok(value), span)
 }
 
