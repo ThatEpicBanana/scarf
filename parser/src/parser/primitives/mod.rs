@@ -28,5 +28,5 @@ pub fn visibility() -> impl Parser<Token, S<Visibility>, Error = Simple<Token>> 
                 None => Visibility::Pub,
             }
         ))
-    .map_with_span(span)
+    .map_with_span(map_span)
 }

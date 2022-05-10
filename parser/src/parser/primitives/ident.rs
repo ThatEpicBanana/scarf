@@ -49,5 +49,5 @@ pub fn ident() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
     filter(|tok| matches!(tok, IDENTIFIER(_)))
         .labelled("ident")
         .map(|tok| tok.into())
-        .map_with_span(span)
+        .map_with_span(map_span)
 }

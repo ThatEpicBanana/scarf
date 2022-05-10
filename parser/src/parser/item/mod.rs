@@ -78,12 +78,12 @@ impl From<S<ItemVariant>> for Item {
 pub fn item_variant() -> impl Parser<Token, S<ItemVariant>, Error = Simple<Token>> {
     choice((
         inner_attribute().map(ItemVariant::InnerAttribute),
-    )).map_with_span(span)
+    )).map_with_span(map_span)
 }
 
 pub fn item() -> impl Parser<Token, Item, Error = Simple<Token>> {
     inner_attribute()
-        .map_with_span(|attribute, spn| Item::simple(span(ItemVariant::InnerAttribute(attribute), spn)))
+        .map_with_span(|attribute, spn| Item::simple(map_span(ItemVariant::InnerAttribute(attribute), spn)))
     .or(attribute::outer_attribute().repeated()
         .then(visibility())
         .then(

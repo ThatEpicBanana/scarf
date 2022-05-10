@@ -24,7 +24,7 @@ impl GenericArgument {
             .or_not()
         .then(typ::typ())
                 .map(|(id, typ)| Self::new(typ, id))
-                .map_with_span(span)
+                .map_with_span(map_span)
     }
 }
 

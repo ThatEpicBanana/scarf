@@ -8,5 +8,5 @@ pub enum Type {
 pub fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
     any().to(Type::Temp)
         .labelled("type")
-        .map_with_span(span)
+        .map_with_span(map_span)
 }

@@ -84,8 +84,15 @@ impl<T> From<Spanned<T>> for Spanned<Opt<T>> {
 /// Utility function to create a [`Spanned`] from a value and some span
 /// 
 /// Designed to be used with [map_with_span](chumsky::Parser::map_with_span)
-pub fn span<T>(value: T, span: Span) -> Spanned<T> {
-    Spanned::spanned(value, span)
+pub fn map_span<T>(value: T, spn: Span) -> Spanned<T> {
+    span(spn, value)
+}
+
+/// Utility function to create a [`Spanned`] from a value and some span
+/// 
+/// Alternative to [`map_span`] for readability
+pub fn span<T>(spn: Span, value: T) -> Spanned<T> {
+    Spanned::spanned(value, spn)
 }
 
 /// Utility function to create a [`Spanned`] from a value and no span
@@ -141,14 +148,14 @@ impl<T> Deref for Opt<T> {
 /// 
 /// Designed to be used with [`map_with_span`](chumsky::Parser::map_with_span)
 pub fn ok_span<T>(value: T, span: Span) -> Spanned<Opt<T>> {
-    self::span(Opt::Ok(value), span)
+    self::map_span(Opt::Ok(value), span)
 }
 
 /// Utility function to create an [`Err`](Opt::Err) [`Spanned<Opt<T>>`] from a span
 /// 
 /// Designed to be used with any [`recovery`](chumsky::recovery) with a `fallback`
 pub fn err_span<T>(span: Span) -> Spanned<Opt<T>> {
-    self::span(Opt::Err, span)
+    self::map_span(Opt::Err, span)
 }
 
 impl<T> Spanned<Opt<T>> {

@@ -122,16 +122,16 @@ impl From<&str> for S<Path> {
 fn path_root() -> impl Parser<Token, S<PathRoot>, Error = Simple<Token>> {
     just(KW_BASKET).to(PathRoot::Basket)
     .or(just(KW_THIS).to(PathRoot::This))
-        .map_with_span(span)
-    .or(path_part().map(|Spanned(part, spn)| span(PathRoot::Part(part), spn.unwrap())))
+        .map_with_span(map_span)
+    .or(path_part().map(|Spanned(part, spn)| map_span(PathRoot::Part(part), spn.unwrap())))
     .labelled("path root")
 }
 
 fn path_part() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> {
     just(KW_SUPER).to(PathPart::Super)
     .or(just(KW_SELF).to(PathPart::Selff))
-        .map_with_span(span)
-    .or(ident::ident().map(|Spanned(idt, spn)| span(PathPart::Id(idt), spn.unwrap())))
+        .map_with_span(map_span)
+    .or(ident::ident().map(|Spanned(idt, spn)| map_span(PathPart::Id(idt), spn.unwrap())))
     .labelled("path part")
 }
 
@@ -161,7 +161,7 @@ pub fn path() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
         )
     ).labelled("path")
     .map(|(root, parts)| Path{root, parts}) // map to path
-    .map_with_span(span)
+    .map_with_span(map_span)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -181,7 +181,7 @@ impl GenericPath {
         path::path()
         .then(GenericArguments::parser().or_not())
                 .map(|(path, generics)| GenericPath::new(path, generics))
-                .map_with_span(span)
+                .map_with_span(map_span)
     }
 }
 

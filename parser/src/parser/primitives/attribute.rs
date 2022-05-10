@@ -46,12 +46,12 @@ fn doc_comment(inn: bool) -> impl Parser<Token, S<Attribute>, Error = Simple<Tok
             DOC_COMMENT { com: _, inner } 
                 if inner == &inn.clone()
         )
-    ).map_with_span(move |tok, spn: Span| span(
+    ).map_with_span(move |tok, spn: Span| map_span(
         // doc comments are spanned with and hold a stream with a span equal to its only token's span
         Attribute { 
             inner: inn, 
             attr_type: AttributeType::DocComment,
-            token_stream: span(vec![(tok, spn.clone())], spn.clone()),
+            token_stream: map_span(vec![(tok, spn.clone())], spn.clone()),
         },
         spn
     ))
@@ -62,7 +62,7 @@ fn attribute_inner() -> impl Parser<Token, (S<Path>, S<TokenStream>), Error = Si
     .then(
         any_group()
         .or(just(OP_EQUAL).ignore_then(token_stream_until(OP_RSQUARE)))
-            .map_with_span(span)
+            .map_with_span(map_span)
         .then_ignore(just(OP_RSQUARE))
     )
 }
@@ -76,7 +76,7 @@ pub fn outer_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
         just(OP_LSQUARE)
         .ignore_then(attribute_inner())
         .map_with_span(|(path, token_stream), spn| 
-            span(Ok(Attribute::new_outer(path, token_stream)), spn)
+            map_span(Ok(Attribute::new_outer(path, token_stream)), spn)
         ).recover_with(nested_delimiters(
             OP_LSQUARE, OP_RSQUARE, 
             [(OP_LCURLY, OP_RCURLY), (OP_LPARA, OP_RPARA)],
@@ -91,7 +91,7 @@ pub fn inner_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
         just(OP_LSQUARE)
         .ignore_then(attribute_inner())
         .map_with_span(|(path, token_stream), spn| 
-            span(Ok(Attribute::new_inner(path, token_stream)), spn)
+            map_span(Ok(Attribute::new_inner(path, token_stream)), spn)
         ).recover_with(nested_delimiters(
             OP_LSQUARE, OP_RSQUARE, 
             [(OP_LCURLY, OP_RCURLY), (OP_LPARA, OP_RPARA)],

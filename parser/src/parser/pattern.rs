@@ -23,12 +23,31 @@ impl SinglePattern {
     }
 }
 
+impl From<S<Pattern>> for SinglePattern {
+    fn from(pattern: S<Pattern>) -> Self {
+        Self::simple(pattern)
+    }
+}
+
+impl From<S<DataPattern>> for SinglePattern {
+    fn from(pat: S<DataPattern>) -> Self {
+        Self::simple(
+            if let Some(spn) = pat.span() {
+                span(spn, Pattern::Data { typ: None, pat })
+            } else {
+                no_span(Pattern::Data { typ: None, pat })
+            }
+        )
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Pattern {
     Bound      ( S<Expression> ),
     Identifier ( S<IdentifierPattern> ),
 
+    Enum { typ: Option<S<Type>>, pat: S<DataPattern>, path: S<GenericPath> },
     Rest { typ: Option<S<Type>>, id: Option<S<Ident>>, },
     Data { typ: Option<S<Type>>, pat: S<DataPattern>,  },
 }
@@ -61,8 +80,6 @@ impl IdentifierPattern {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DataPattern {
-    Enum { path: S<GenericPath>, pattern: Box<S<DataPattern>> },
-
     List     ( S<Opt<Vec<Box<S<SinglePattern>>>>>   ),
     Tuple    ( S<Opt<Vec<Box<S<SinglePattern>>>>>   ),
     Compound ( S<Opt<Vec<S<CompoundPatternField>>>> ),
@@ -122,7 +139,7 @@ fn key() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
     ident::ident().map(CompoundPatternKey::Ident)
     .or(filter(|tok| matches!(tok, INTEGER(_)))
         .map_with_span(|tok, spn| 
-            if let INTEGER(x) = tok { CompoundPatternKey::Index(span(x, spn)) }
+            if let INTEGER(x) = tok { CompoundPatternKey::Index(map_span(x, spn)) }
             else { unreachable!() } // unreachable due to filter
         )
     ).labelled("compound pattern key")
@@ -200,13 +217,13 @@ fn data_pattern(single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error 
                 .then_ignore(just(OP_COMM).rewind())
                     .map(CompoundPatternField::Simple)
         // field, field,
-        )).map_with_span(span)
+        )).map_with_span(map_span)
         .separated_by(just(OP_COMM)).allow_trailing() 
             // { field, }
             .delimited_by(just(OP_LCURLY), just(OP_RCURLY)) 
             .map_with_span(ok_span).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], err_span))
                 .map(DataPattern::Compound),
-    )).map_with_span(span)
+    )).map_with_span(map_span)
 }
 
 //FIXME: make a parser where the top level does not allow for defaults
@@ -215,22 +232,18 @@ pub fn pattern() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Tok
         attribute::outer_attribute().repeated()
         .then(
             choice((
-                // data         -- (data), path.path[data]
-                //TODO: enum generics
-                GenericPath::parser().or_not()
-                .then(data_pattern(single_pattern))
+                // enum         -- path.path(data): type
+                GenericPath::parser()
+                .then(data_pattern(single_pattern.clone()))
                 .then(typ().or_not())
-                        .map_with_span(|((path, pattern), typ), spn| 
-                            Pattern::Data{
-                                // optional type
-                                typ,
-                                // then if it's an enum
-                                pat: if let Some(path) = path { 
-                                    // package it
-                                    span(DataPattern::Enum { pattern: Box::new(pattern), path }, spn)
-                                // or just use it normally
-                                } else { pattern },
-                            }
+                        .map(|((path, pat), typ)|
+                            Pattern::Enum { typ, pat, path }
+                        ),
+                // data         -- (data): type
+                data_pattern(single_pattern)
+                .then(typ().or_not())
+                        .map(|(pat, typ)| 
+                            Pattern::Data { typ, pat }
                         ),
                 // identifier   -- name: type @ bound
                     // name
@@ -243,7 +256,7 @@ pub fn pattern() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Tok
                     // @ bound
                 .then(bound().or_not())
                     .map_with_span(|(((ident, typ), default), bound), spn| 
-                        Pattern::Identifier(span(
+                        Pattern::Identifier(map_span(
                             IdentifierPattern::new(ident, typ, bound, default), 
                             spn
                         ))
@@ -254,8 +267,8 @@ pub fn pattern() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Tok
                 // bound        -- @ bound
                 bound() 
                         .map(Pattern::Bound),
-            )).labelled("pattern variant").map_with_span(span)
-        ).labelled("pattern").map_with_span(|(attributes, pattern), spn| Box::new(span(SinglePattern { attributes, pattern }, spn)))
+            )).labelled("pattern variant").map_with_span(map_span)
+        ).labelled("pattern").map_with_span(|(attributes, pattern), spn| Box::new(map_span(SinglePattern { attributes, pattern }, spn)))
     )
 }
 
