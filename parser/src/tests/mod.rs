@@ -1,12 +1,12 @@
 use crate::parser::prelude::*;
 
-use chumsky::Stream;
+use chumsky::{Stream, error::SimpleReason};
 use std::{fmt::Debug, collections::HashMap, cmp::Ordering};
 
 use pretty_assertions::assert_eq;
 
 fn test(source: &str, expected: Vec<Item>) {
-    let super::ParserOutput{out, parser_errors, lexer_errors} = crate::parse_verbose(source);
+    let super::ParserOutput{out, parser_errors, lexer_errors} = crate::parse(source);
     
     if lexer_errors.len() > 0 { panic!("Lexer Errors found: {:#?}\nRecovered Syntax Tree: {:#?}", lexer_errors, out); }
     if parser_errors.len() > 0 { panic!("Parser Errors found: {:#?}\nRecovered Syntax Tree: {:#?}", parser_errors, out); }
@@ -14,8 +14,12 @@ fn test(source: &str, expected: Vec<Item>) {
     assert_eq!(out.unwrap(), expected);
 }
 
-fn test_parser<T>(input: &str, parser: impl Parser<Token, T, Error = Simple<Token>>, expected: T, expected_errors: HashMap<Span, Option<Token>>) 
-where T: PartialEq + Eq + Debug + Clone {
+fn test_parser<T>(
+    input: &str, 
+    parser: impl Parser<Token, T, Error = Simple<Token>>, 
+    expected: T, 
+    expected_errors: HashMap<Span, (SimpleReason<Token, Span>, Option<Token>)>
+) where T: PartialEq + Eq + Debug + Clone {
     let len = input.len();
 
     // try lexing
@@ -41,8 +45,8 @@ where T: PartialEq + Eq + Debug + Clone {
 
     for error in parser_errors.clone() {
         // check if error matches an expected error
-        let res = if let Some(tok) = expected_errors.get(&error.span()) {
-            error.found() == tok.as_ref()
+        let res = if let Some((reason, tok)) = expected_errors.get(&error.span()) {
+            error.found() == tok.as_ref() && error.reason() == reason
         } else { false };
 
         // if it doesn't, panic
@@ -58,7 +62,6 @@ where T: PartialEq + Eq + Debug + Clone {
 #[test]
 fn inner_attributes() {
     use attribute::Attribute;
-    use macros::TokenStream;
 
     test_parser(include_str!("inner_attributes.sf"), 
         attribute::inner_attribute().repeated().then_ignore(end()), 
@@ -95,7 +98,6 @@ fn inner_attributes() {
 
 #[test]
 fn patterns() {
-    // test_parser(pattern::test().repeated().then_ignore(end()), include_str!("patterns.sf"), vec![]);
     test_parser(include_str!("patterns.sf"), 
         pattern::pattern()
             // // useful for debugging, but breaks parser and adds an error at the end
@@ -104,12 +106,13 @@ fn patterns() {
             .separated_by(just(OP_SEMI)).allow_trailing()
             .then_ignore(end()),  
         vec![
-            // omitted because of soon refactor
-            // try to make sure this isn't that hard to do by making functions
+            // real world
+
         ], 
         HashMap::from([
-            (283..284, Some(OP_STAR)),
-            (348..349, Some(OP_STAR)),
+            (286..287, (SimpleReason::Unexpected, Some(OP_STAR))),
+            (351..352, (SimpleReason::Unexpected, Some(OP_STAR))),
+            (416..535, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
         ])
     );
 }

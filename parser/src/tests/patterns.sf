@@ -7,7 +7,7 @@
             {
                 id: ench_id,
                 lvl as int
-            },
+            }: _,
             ...
         ]
     }
@@ -33,7 +33,7 @@ this.name(
         {
             foo @ 1,
             key as type,
-            ...rest
+            ...rest: _,
         }
     ],
 );
