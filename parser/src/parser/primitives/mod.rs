@@ -2,6 +2,7 @@ pub mod ident;
 pub mod path;
 pub mod macros;
 pub mod attribute;
+pub mod generics;
 
 use crate::parser::prelude::*;
 

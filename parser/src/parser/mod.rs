@@ -7,6 +7,8 @@ pub mod primitives;
 
 pub mod prelude;
 
+//TODO: put parsers in types
+
 use std::fmt::{self, Debug};
 use std::ops::Deref;
 
