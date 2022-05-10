@@ -163,3 +163,25 @@ pub fn path() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
     .map(|(root, parts)| Path{root, parts}) // map to path
     .map_with_span(span)
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GenericPath {
+    path: S<Path>,
+    generics: Option<S<Opt<GenericArguments>>>,
+}
+
+impl GenericPath {
+    /// Creates a new [`GenericPath`] using a spanned [`Path`] and [`GenericArguments`]
+    pub fn new(path: S<Path>, generics: Option<S<Opt<GenericArguments>>>) -> Self {
+        GenericPath { path, generics }
+    }
+
+    //ADDDOC
+    pub fn parser() -> impl Parser<Token, S<GenericPath>, Error = Simple<Token>> {
+        path::path()
+        .then(GenericArguments::parser().or_not())
+                .map(|(path, generics)| GenericPath::new(path, generics))
+                .map_with_span(span)
+    }
+}
+

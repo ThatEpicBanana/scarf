@@ -17,7 +17,8 @@ pub use crate::{
         primitives::{
             *,
             ident::Ident,
-            path::Path,
+            path::{Path, GenericPath},
+            generics::GenericArguments,
         },
         expression::{
             Expression,

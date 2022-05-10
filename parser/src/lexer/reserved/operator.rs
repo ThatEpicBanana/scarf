@@ -106,7 +106,8 @@ op_macro!{
         // comparison
         OP_EQUAL = "=",
         OP_DOUBLE_EQUAL = "==", OP_FUZZY_EQUAL = "~=", OP_NOT_EQUAL = "!=", OP_FUZZY_NOT_EQUAL = "!~=",
-        OP_LESS = "<", OP_MORE = ">", OP_LESS_EQUAL = "<=", OP_MORE_EQUAL = ">=",
+        // OP_LESS = "<", OP_MORE = ">", 
+        OP_LESS_EQUAL = "<=", OP_MORE_EQUAL = ">=",
     } 
 
     bottom {

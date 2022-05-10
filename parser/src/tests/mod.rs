@@ -112,7 +112,7 @@ fn patterns() {
         HashMap::from([
             (286..287, (SimpleReason::Unexpected, Some(OP_STAR))),
             (351..352, (SimpleReason::Unexpected, Some(OP_STAR))),
-            (416..535, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
+            (426..545, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
         ])
     );
 }

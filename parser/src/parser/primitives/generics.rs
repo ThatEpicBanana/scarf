@@ -17,7 +17,7 @@ impl GenericArgument {
         Self::new(typ, None)
     }
 
-    //TODO: docs
+    //ADDDOC
     pub fn parser() -> impl Parser<Token, S<GenericArgument>, Error = Simple<Token>> {
         ident::ident()
             .then_ignore(just(OP_EQUAL))
@@ -37,7 +37,7 @@ impl GenericArguments {
         GenericArguments(args)
     }
 
-    //TODO: docs
+    //ADDDOC
     pub fn parser() -> impl Parser<Token, S<Opt<GenericArguments>>, Error = Simple<Token>> {
         // arg
         GenericArgument::parser()

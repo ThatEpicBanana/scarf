@@ -61,7 +61,7 @@ impl IdentifierPattern {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DataPattern {
-    Enum { path: S<Path>, pattern: Box<S<DataPattern>> },
+    Enum { path: S<GenericPath>, pattern: Box<S<DataPattern>> },
 
     List     ( S<Opt<Vec<Box<S<SinglePattern>>>>>   ),
     Tuple    ( S<Opt<Vec<Box<S<SinglePattern>>>>>   ),
@@ -217,7 +217,7 @@ pub fn pattern() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Tok
             choice((
                 // data         -- (data), path.path[data]
                 //TODO: enum generics
-                path::path().or_not()
+                GenericPath::parser().or_not()
                 .then(data_pattern(single_pattern))
                 .then(typ().or_not())
                         .map_with_span(|((path, pattern), typ), spn| 
