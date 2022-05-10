@@ -2,8 +2,10 @@
     "discord.enabled": true,
     "cSpell.words": [
         "chumsky",
+        "LANGLE",
         "LCURLY",
         "LPARA",
+        "RANGLE",
         "RCURLY",
         "RPARA",
         "RSQUARE"
