@@ -22,5 +22,9 @@
 	"Parser": {
 		"prefix": ["impl Parser"],
 		"body": ["impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>>"]
+	},
+	"Add Documentation Notice": {
+		"prefix": "//ADDDOC",
+		"body": "//ADDDOC",
 	}
 }
