@@ -150,14 +150,6 @@ pub enum DataPattern {
 } 
 
 impl DataPattern {
-    pub fn parser(single_pattern: SPatParser!()) -> impl Parser<Token, S<DataPattern>, Error = Simple<Token>> {
-        choice((
-            Self::    tuple_parser(single_pattern.clone()),
-            Self::     list_parser(single_pattern.clone()),
-            Self:: compound_parser(single_pattern),
-        )).map_with_span(map_span)
-    }
-
     #[inline]
     fn pattern_list(single_pattern: SPatParser!()) -> impl Parser<Token, Vec<Box<S<SinglePattern>>>, Error = Simple<Token>> {
         // pattern,
@@ -165,65 +157,60 @@ impl DataPattern {
             .separated_by(just(OP_COMM)).allow_trailing()
     }
 
-    #[inline]
-    fn tuple_parser(single_pattern: SPatParser!()) -> impl Parser<Token, DataPattern, Error = Simple<Token>> {
-        // tuple (pattern,)
-        Self::pattern_list(single_pattern).delimited_by(just(OP_LPARA), just(OP_RPARA))
-            .map_with_span(map_ok_span)
-            .recover_with(nested_delimiters(OP_LPARA, OP_RPARA, [(OP_LSQUARE, OP_RSQUARE), (OP_LCURLY, OP_RCURLY)], err_span))
-            .map(DataPattern::Tuple)
+    pub fn parser(single_pattern: SPatParser!()) -> impl Parser<Token, S<DataPattern>, Error = Simple<Token>> {
+        choice((
+            // tuple (pattern,)
+            Self::pattern_list(single_pattern.clone()).delimited_by(just(OP_LPARA), just(OP_RPARA))
+                .map_with_span(map_ok_span)
+                .recover_with(nested_delimiters(OP_LPARA, OP_RPARA, [(OP_LSQUARE, OP_RSQUARE), (OP_LCURLY, OP_RCURLY)], err_span))
+                .map(DataPattern::Tuple),
+            // list [pattern,]
+            Self::pattern_list(single_pattern.clone()).delimited_by(just(OP_LSQUARE), just(OP_RSQUARE))
+                .map_with_span(map_ok_span)
+                .recover_with(nested_delimiters(OP_LSQUARE, OP_RSQUARE, [(OP_LPARA, OP_RPARA), (OP_LCURLY, OP_RCURLY)], err_span))
+                .validate(Self::validate_list),
+            // compound {field,}
+            CompoundPatternField::parser(single_pattern)
+                // field, field,
+                .separated_by(just(OP_COMM)).allow_trailing() 
+                    // { field, }
+                    .delimited_by(just(OP_LCURLY), just(OP_RCURLY)) 
+                    .map_with_span(map_ok_span).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], err_span))
+                        .map(DataPattern::Compound),
+        )).map_with_span(map_span)
     }
 
-    #[inline]
-    fn list_parser(single_pattern: SPatParser!()) -> impl Parser<Token, DataPattern, Error = Simple<Token>> {
-        // list [pattern,]
-        Self::pattern_list(single_pattern).delimited_by(just(OP_LSQUARE), just(OP_RSQUARE))
-            .map_with_span(map_ok_span)
-            .recover_with(nested_delimiters(OP_LSQUARE, OP_RSQUARE, [(OP_LPARA, OP_RPARA), (OP_LCURLY, OP_RCURLY)], err_span))
-            .validate(|list, span, emit| {
-                // validate that all the patterns in the list are the same type
-                if list.is_ok() && list.len() > 1 {
-                    // initialize type
-                    let mut typ = None;
-
-                    // for each pattern in list
-                    for pattern in list.clone().unwrap_span().into_iter() {
-                        let pattern = pattern.unspan().pattern.unspan(); // unwrap
-
-                        // if it's not a rest pattern
-                        if !matches!(pattern, Pattern::Rest{..}) {
-                            // get the discriminant
-                            let current = std::mem::discriminant(&pattern);
-
-                            // if the type exists
-                            if let Some(typ) = typ {
-                                // check if it's the same
-                                if current != typ { emit(Simple::custom(span.clone(), 
-                                    //TODO: change this to a custom reason
-                                    "Lists must be completely consisted of the same type."
-                                )) }
-                            // otherwise initialize it
-                            } else { typ = Some(current); }
-                        }
-                    }
+    fn validate_list(list: Spanned<Opt<Vec<Box<Spanned<SinglePattern>>>>>, span: Span, emit: &mut dyn FnMut(Simple<Token>)) -> DataPattern {
+        if list.is_ok() && list.len() > 1 {
+            // initialize type
+            let mut typ = None;
+    
+            // for each pattern in list
+            for pattern in list.clone().unwrap_span().into_iter() {
+                let pattern = pattern.unspan().pattern.unspan(); // unwrap
+    
+                // if it's not a rest pattern
+                if !matches!(pattern, Pattern::Rest{..}) {
+                    // get the discriminant
+                    let current = std::mem::discriminant(&pattern);
+    
+                    // if the type exists
+                    if let Some(typ) = typ {
+                        // check if it's the same
+                        if current != typ { emit(Simple::custom(span.clone(), 
+                            //TODO: change this to a custom reason
+                            "Lists must be completely consisted of the same type."
+                        )) }
+                    // otherwise initialize it
+                    } else { typ = Some(current); }
                 }
+            }
+        }
 
-                DataPattern::List(list)
-            })
-    }
-
-    #[inline]
-    fn compound_parser(single_pattern: SPatParser!()) -> impl Parser<Token, DataPattern, Error = Simple<Token>> {
-        // compound {key as type, key: pattern, key @ bound, key, ...}
-        CompoundPatternField::parser(single_pattern)
-        // field, field,
-        .separated_by(just(OP_COMM)).allow_trailing() 
-            // { field, }
-            .delimited_by(just(OP_LCURLY), just(OP_RCURLY)) 
-            .map_with_span(map_ok_span).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], err_span))
-                .map(DataPattern::Compound)
+        DataPattern::List(list)
     }
 }
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundPatternField {
