@@ -59,16 +59,8 @@ impl SinglePattern {
                         // name
                     ident::ident()
                         .then_ignore(none_of([OP_DOT, OP_LPARA, OP_LCURLY, OP_LSQUARE]).rewind())
-                        // : type
-                    .then(typ().or_not())
-                        // = default
-                    .then(default().or_not())
-                        // @ bound
-                    .then(bound().or_not())
-                            .map(|(((ident, typ), default), bound)| 
-                                IdentifierPattern::new(ident, typ, bound, default)
-                            ).map_with_span(map_span)
-                            .map(Pattern::Identifier),
+                    .then(IdentifierInfo::parser(OP_COLON))
+                            .map(|(ident, info)| Pattern::Identifier(ident, info)),
                     // rest pattern -- ...name
                     rest()
                             .map(Pattern::rest_from_tuple),
@@ -107,7 +99,7 @@ impl From<S<DataPattern>> for SinglePattern {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Pattern {
     Bound      ( S<Expression> ),
-    Identifier ( S<IdentifierPattern> ),
+    Identifier ( S<Ident>, S<IdentifierInfo> ),
 
     Enum { path: S<GenericPath>, typ: Option<S<Type>>, pat: S<DataPattern>,  },
     Data                       { typ: Option<S<Type>>, pat: S<DataPattern>,  },
@@ -123,21 +115,31 @@ impl Pattern {
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct IdentifierPattern {
-    pub id:   S<Ident>,
+pub struct IdentifierInfo {
     pub typ:     Option<S<Type>>,
     pub bound:   Option<S<Expression>>,
     pub default: Option<S<Expression>>,
 }
 
-impl IdentifierPattern {
-    fn new(id: S<Ident>, typ: Option<S<Type>>, bound: Option<S<Expression>>, default: Option<S<Expression>>) -> IdentifierPattern {
-        IdentifierPattern { id, typ, bound, default }
+impl IdentifierInfo {
+    pub fn new(typ: Option<S<Type>>, bound: Option<S<Expression>>, default: Option<S<Expression>>) -> IdentifierInfo {
+        IdentifierInfo { typ, bound, default }
     }
 
     pub fn has_type    (&self) -> bool { self.  typ  .is_some() }
     pub fn has_bound   (&self) -> bool { self. bound .is_some() }
     pub fn has_default (&self) -> bool { self.default.is_some() }
+
+    fn parser(type_token: Token) -> impl Parser<Token, S<IdentifierInfo>, Error = Simple<Token>> {
+        // : type
+        typ_tok(type_token).or_not()
+        // @ bound
+        .then(bound().or_not())
+        // = default
+        .then(default().or_not())
+            .map(|((typ, bound), default)| IdentifierInfo::new(typ, bound, default))
+            .map_with_span(map_span)
+    }
 }
 
 
@@ -215,10 +217,7 @@ impl DataPattern {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundPatternField {
     Rest    { id: Option<S<Ident>>, typ: Option<S<Type>>, },
-    Simple  ( CompoundPatternKey ),
-
-    Typed   { key: CompoundPatternKey, typ: S<Type>, },
-    Bounded { key: CompoundPatternKey, bound: S<Expression>, },
+    Simple  { key: CompoundPatternKey, info: S<IdentifierInfo>},
     Pattern { key: CompoundPatternKey, pattern: Box<S<SinglePattern>>, },
 }
 
@@ -227,28 +226,18 @@ impl CompoundPatternField {
         CompoundPatternField::Rest { id: tuple.0, typ: tuple.1 }
     }
 
-    pub fn parser(single_pattern: SPatParser!()) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> {
-        // key as type | key: pattern | key @ bound | key | ...
+    fn parser(single_pattern: SPatParser!()) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> {
+        // key as type @ bound = default | key: pattern | key | ...
         choice((
-            // key as type
-            CompoundPatternKey::parser()
-            .then_ignore(just(KW_AS))
-            .then(typ::typ())
-                    .map(|(key, typ)| CompoundPatternField::Typed { key, typ }),
             // key: pattern
             CompoundPatternKey::parser()
             .then_ignore(just(OP_COLON))
             .then(single_pattern)
                     .map(|(key, pattern)| CompoundPatternField::Pattern { key, pattern }),
-            // key @ bound
+            // key as type @ bound = default
             CompoundPatternKey::parser()
-            .then(bound())
-                    .map(|(key, bound)| CompoundPatternField::Bounded { key, bound }),
-            // key
-            CompoundPatternKey::parser()
-                // ensure that this doesn't take one of the above when it has an error, and then break everything afterwards
-                .then_ignore(just(OP_COMM).rewind())
-                    .map(CompoundPatternField::Simple),
+            .then(IdentifierInfo::parser(KW_AS))
+                    .map(|(key, info)| CompoundPatternField::Simple { key, info }),
             // ...name
             rest()
                     .map(CompoundPatternField::rest_from_tuple),
@@ -310,8 +299,12 @@ fn rest() -> impl Parser<Token, (Option<S<Ident>>, Option<S<Type>>), Error = Sim
         .labelled("rest pattern")
 }
 
-fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
-    just(OP_COLON)
+fn typ_tok(tok: Token) -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
+    just(tok)
         .ignore_then(typ::typ())
         .labelled("pattern type")
+}
+
+fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
+    typ_tok(OP_COLON)
 }
