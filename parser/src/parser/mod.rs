@@ -7,9 +7,8 @@ pub mod primitives;
 
 pub mod prelude;
 
-//TODO: put parsers in types
-
 use std::fmt::{self, Debug};
+use std::iter;
 use std::ops::Deref;
 
 /// A type representing a span of input text 
@@ -17,35 +16,35 @@ pub type Span = std::ops::Range<usize>;
 
 /// A simple (smart pointer) struct that associates a type with a [`Span`]
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct Spanned<T>(T, Option<Span>);
+pub struct Spanned<T>(Option<Span>, T);
 /// A shorter alias for [`Spanned`]
 pub type S<T> = Spanned<T>;
 
 impl<T> Spanned<T> {
     /// Returns a clone of the held span
     pub fn span(&self) -> Option<Span> {
-        self.1.clone()
+        self.0.clone()
     }
 
     /// Takes an owned value out of a span
-    pub fn unspan     ( self) ->  T {  self.0 }
+    pub fn unspan     ( self) ->  T {  self.1 }
     /// References a value from a span
-    pub fn unspan_ref (&self) -> &T { &self.0 }
+    pub fn unspan_ref (&self) -> &T { &self.1 }
     
     /// Creates a [`Spanned`] from a given value and optional span
-    pub fn new(value: T, span: Option<Span>) -> Self {
-        Spanned(value, span)
+    pub fn new(span: Option<Span>, value: T) -> Self {
+        Spanned(span, value)
     }
     
     // man i'm getting jamais vu
     /// Creates a [`Spanned`] from a value and some span
     pub fn spanned(value: T, span: Span) -> Self {
-        Self::new(value, Some(span))
+        Self::new(Some(span), value)
     } 
 
     /// Creates a [`Spanned`] from a value with no span
     pub fn empty_span(value: T) -> Self {
-        Self::new(value, None)
+        Self::new(None, value)
     }
 }
 
@@ -53,31 +52,31 @@ impl<T> Deref for Spanned<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.unspan_ref()
     }
 }
 
 impl<T: Debug> fmt::Debug for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // write span
-        if self.1.is_some() {
-            write!(f, "({:?}) ", self.1.as_ref().unwrap())?;
+        if self.0.is_some() {
+            write!(f, "({:?}) ", self.0.as_ref().unwrap())?;
         } else {
             write!(f, "(None) ")?;
         }
 
         // write value
         if f.alternate() {
-            write!(f, "{:#?}", self.0)
+            write!(f, "{:#?}", self.1)
         } else {
-            write!(f, "{:?}", self.0)
+            write!(f, "{:?}", self.1)
         }
     }
 }
 
 impl<T> From<Spanned<T>> for Spanned<Opt<T>> {
     fn from(from: Spanned<T>) -> Self {
-        Spanned::new(Ok(from.0), from.1)
+        Spanned::new(from.0, Ok(from.1), )
     }
 }
 
@@ -170,8 +169,40 @@ impl<T> Spanned<Opt<T>> {
 }
 
 
-use crate::parser::prelude::*;
+#[macro_export]
+macro_rules! parse {
+    ($x:ident) => {
+        $x::parser()
+    };
+} use chumsky::Stream;
+pub use parse;
 
+
+/// Creates a string offset by `offset`
+fn offset_string(offset: usize, string: &str) -> String {
+    iter::repeat(' ').take(offset)   // add `offset` spaces
+    .chain(string.chars()).collect() // to start of string
+}
+
+/// Parses a `string` with a given `parser`, passing it through the lexer first.
+/// 
+/// `name`: The name to call the output in error messages
+fn lex_to_parse<O>(string: &str, parser: impl Parser<Token, O, Error = Simple<Token>>, name: &str) -> O
+where 
+    O: Clone + Debug + PartialEq + Eq + std::hash::Hash 
+{
+    let len = string.len();
+    
+    parser.parse(Stream::from_iter(len..len+1,
+        crate::lexer::create().parse(
+            string
+        ).expect(format!("Failed to lex {}!", name).as_str()).into_iter()
+    )).expect(format!("Failed to parse {}!", name).as_str())
+}
+
+
+
+use crate::parser::prelude::*;
 
 pub fn create() -> impl Parser<Token, Vec<Item>, Error = Simple<Token>> {
     item::item()

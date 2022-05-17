@@ -85,7 +85,7 @@ pub fn item() -> impl Parser<Token, Item, Error = Simple<Token>> {
     inner_attribute()
         .map_with_span(|attribute, spn| Item::simple(map_span(ItemVariant::InnerAttribute(attribute), spn)))
     .or(attribute::outer_attribute().repeated()
-        .then(visibility())
+        .then(parse!(Visibility))
         .then(
             one_of([KW_EXT, KW_STAT, KW_ABST])
                 .repeated()

@@ -27,6 +27,6 @@ fn main() {
     compile(args);
 }
 
-pub fn compile(args: Args) {
+pub fn compile(_args: Args) {
     todo!();
 }

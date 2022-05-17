@@ -10,6 +10,14 @@ impl Ident {
     pub fn new(id: String) -> Ident {
         Ident(id)
     }
+
+    /// Parses a single [`IDENTIFIER`] into an [`Ident`]
+    pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
+        filter(|tok| matches!(tok, IDENTIFIER(_)))
+            .labelled("ident")
+            .map(|tok| tok.into())
+            .map_with_span(map_span)
+    }
 }
 
 impl fmt::Debug for Ident {
@@ -40,14 +48,4 @@ impl From<&str> for Ident {
     fn from(string: &str) -> Ident {
         Ident::new(string.to_string())
     }
-}
-
-/// Parses a single [`IDENTIFIER`] into an [`Ident`]
-/// 
-/// Automatically [`Spanned`].
-pub fn ident() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
-    filter(|tok| matches!(tok, IDENTIFIER(_)))
-        .labelled("ident")
-        .map(|tok| tok.into())
-        .map_with_span(map_span)
 }

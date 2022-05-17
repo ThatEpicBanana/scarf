@@ -58,7 +58,7 @@ fn doc_comment(inn: bool) -> impl Parser<Token, S<Attribute>, Error = Simple<Tok
 }
 
 fn attribute_inner() -> impl Parser<Token, (S<Path>, S<TokenStream>), Error = Simple<Token>> {
-        path::path()
+        parse!(Path)
     .then(
         any_group()
         .or(just(OP_EQUAL).ignore_then(token_stream_until(OP_RSQUARE)))

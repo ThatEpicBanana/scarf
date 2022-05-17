@@ -1,7 +1,4 @@
-use chumsky::Stream;
-
 use crate::prelude::*;
-use std::iter;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {
@@ -35,6 +32,28 @@ impl Path {
         Path { root, parts }
     }
 
+    /// Parses into a [`Path`]
+    /// 
+    /// **Examples:**
+    /// ```ignore
+    /// this.x
+    /// ```
+    pub fn parser() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
+        path_root().then(
+            // optional : after the root
+                just(OP_COLON)
+                    .ignore_then(path_part())
+                    .or_not()
+            .chain( // then repeated . then part
+                just(OP_DOT)
+                    .ignore_then(path_part())
+                    .repeated()
+            )
+        ).labelled("path")
+        .map(|(root, parts)| Path{root, parts}) // map to path
+        .map_with_span(map_span)
+    }
+
     /// Turns a vector of parts into a path, with the first part as the root
     /// 
     /// ### Panics
@@ -56,14 +75,14 @@ impl Path {
     /// ### Example:
     /// 
     /// ```
-    /// # use crate::parser::prelude::*;
+    /// # use parser::parser::prelude::*;
     /// # use path::*;
     /// assert_eq!(
-    ///     Path::from_offset_string("this.x", 10), 
-    ///     Path::new(
-    ///         span(PathRoot::This, 10..14), 
-    ///         vec![span(PathPart::Id(Ident::new("x")), 15..16)]
-    ///     )
+    ///     Path::from_offset_string(10, "this.x"), 
+    ///     span(10..16, Path::new(
+    ///         span(10..14, PathRoot::This), 
+    ///         vec![span(15..16, PathPart::Id(Ident::from("x")))]
+    ///     ))
     /// );
     /// ```
     /// 
@@ -71,11 +90,7 @@ impl Path {
     /// 
     /// The same as `<Path as From<&str>>::from`
     pub fn from_offset_string(offset: usize, string: &str) -> S<Path> {
-        let string: String = 
-            iter::repeat(' ').take(offset) // add `offset` spaces
-            .chain(string.chars()).collect();   // to start of string
-
-        string.as_str().into()
+        offset_string(offset, string).as_str().into()
     }
 }
 
@@ -109,13 +124,7 @@ impl From<&str> for S<Path> {
     ///     - If operators are doubled up
     ///     - etc
     fn from(string: &str) -> S<Path> {
-        let len = string.len();
-
-        path().parse(Stream::from_iter(len..len+1,
-            crate::lexer::create().parse(
-                string
-            ).expect("Failed to lex path!").into_iter()
-        )).expect("Failed to parse path!")
+        lex_to_parse(string, parse!(Path), "Path")
     }
 }
 
@@ -123,7 +132,7 @@ fn path_root() -> impl Parser<Token, S<PathRoot>, Error = Simple<Token>> {
     just(KW_BASKET).to(PathRoot::Basket)
     .or(just(KW_THIS).to(PathRoot::This))
         .map_with_span(map_span)
-    .or(path_part().map(|Spanned(part, spn)| map_span(PathRoot::Part(part), spn.unwrap())))
+    .or(path_part().map(|Spanned(spn, part)| map_span(PathRoot::Part(part), spn.unwrap())))
     .labelled("path root")
 }
 
@@ -131,37 +140,8 @@ fn path_part() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> {
     just(KW_SUPER).to(PathPart::Super)
     .or(just(KW_SELF).to(PathPart::Selff))
         .map_with_span(map_span)
-    .or(ident::ident().map(|Spanned(idt, spn)| map_span(PathPart::Id(idt), spn.unwrap())))
+    .or(parse!(Ident).map(|Spanned(spn, id)| map_span(PathPart::Id(id), spn.unwrap())))
     .labelled("path part")
-}
-
-//TODO: check if this actually works
-/// Parses into a [`Path`]
-/// 
-/// **Examples:**
-/// ```
-/// # use crate::parser::prelude::*;
-/// # use path::*;
-/// # use crate::tests::test_parser;
-/// # 
-/// # test_parser(path(), "
-/// this.x
-/// # ", Path::new(span(PathRoot::This, 1..5), vec![span(PathPart::Id("x".into()), 6..7)]))
-/// ```
-pub fn path() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
-    path_root().then(
-        // optional : after the root
-            just(OP_COLON)
-                .ignore_then(path_part())
-                .or_not()
-        .chain( // then repeated . then part
-            just(OP_DOT)
-                .ignore_then(path_part())
-                .repeated()
-        )
-    ).labelled("path")
-    .map(|(root, parts)| Path{root, parts}) // map to path
-    .map_with_span(map_span)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -178,8 +158,8 @@ impl GenericPath {
 
     //ADDDOC
     pub fn parser() -> impl Parser<Token, S<GenericPath>, Error = Simple<Token>> {
-        path::path()
-        .then(GenericArguments::parser().or_not())
+        parse!(Path)
+        .then(parse!(GenericArguments).or_not())
                 .map(|(path, generics)| GenericPath::new(path, generics))
                 .map_with_span(map_span)
     }
