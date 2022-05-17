@@ -71,6 +71,10 @@ impl SinglePattern {
             ).labelled("pattern").map_with_span(|(attributes, pattern), spn| Box::new(map_span(SinglePattern { attributes, pattern }, spn)))
         )
     }
+
+    pub fn from_offset_string(offset: usize, string: &str) -> Box<S<SinglePattern>> {
+        offset_string(offset, string).as_str().into()
+    }
 }
 
 // conversion from pattern to single pattern
@@ -89,11 +93,16 @@ impl From<S<DataPattern>> for S<SinglePattern> {
     }
 }
 
-
-// // auto-box
-// impl From<S<SinglePattern>> for Box<S<SinglePattern>> {
-    
-// }
+impl From<&str> for Box<S<SinglePattern>> {
+    /// Converts a string into a boxed [`SinglePattern`]
+    /// 
+    /// ### Panics
+    /// 
+    /// - If the lexer or parser fails
+    fn from(string: &str) -> Box<S<SinglePattern>> {
+        lex_to_parse(string, parse!(SinglePattern), "SinglePattern")
+    }
+}
 
 
 
@@ -109,13 +118,7 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    // pub fn bound(exp: S<Expression>)                 -> Pattern { Self::Bound(exp) }
     pub fn id(id: S<Ident>, info: S<IdentifierInfo>) -> Pattern { Self::Identifier { id, info } }
-
-    // pub fn enm(path: S<GenericPath>, typ: Option<S<Type>>, pat: S<DataPattern>) -> Pattern { Self::Enum { path, typ, pat } }
-    // pub fn data(typ: Option<S<Type>>, pat: S<DataPattern>) -> Pattern { Self::Data { typ, pat } }
-    // pub fn rest(typ: Option<S<Type>>, id: Option<S<Ident>>) -> Pattern
-
 
     fn rest_from_tuple(tuple: (Option<S<Ident>>, Option<S<Type>>)) -> Pattern {
         Pattern::Rest{ id: tuple.0, typ: tuple.1 }

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use macros::*;
+use self::macros::*;
 
 use path::Path;
 
