@@ -1,5 +1,3 @@
-use ::macros::{derive_parsable, imply, derive_parsable_from_impl};
-
 use crate::parser::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
