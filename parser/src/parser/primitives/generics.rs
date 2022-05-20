@@ -31,15 +31,11 @@ impl GenericArgument {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericArguments(Vec<S<GenericArgument>>);
 
+#[derive_parsable]
 impl GenericArguments {
     /// Creates a new [`GenericArguments`] from a list of spanned [`GenericArgument`]s
     pub fn new(args: Vec<S<GenericArgument>>) -> GenericArguments {
         GenericArguments(args)
-    }
-
-    
-    pub fn from_offset_string(offset: usize, string: &str) -> S<Opt<GenericArguments>> {
-        offset_string(offset, string).as_str().into()
     }
 
     //ADDDOC
@@ -58,13 +54,4 @@ impl GenericArguments {
     }
 }
 
-impl From<&str> for S<Opt<GenericArguments>> {
-    /// Converts a string into a [`GenericArguments`]
-    /// 
-    /// ### Panics
-    /// 
-    /// - If the lexer or parser fails
-    fn from(string: &str) -> S<Opt<GenericArguments>> {
-        lex_to_parse(string, parse!(GenericArguments), "GenericArguments")
-    }
-}
+#[imply] impl Parsable<S<Opt<GenericArguments>>> for GenericArguments {}

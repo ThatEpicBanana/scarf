@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::parser::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {
@@ -26,6 +26,7 @@ pub struct Path {
     pub parts: Vec<S<PathPart>>,
 }
 
+#[derive_parsable]
 impl Path {
     /// Outputs a path of the given root and parts
     pub fn new(root: S<PathRoot>, parts: Vec<S<PathPart>>) -> Path {
@@ -67,32 +68,9 @@ impl Path {
             parts: parts.map(no_span).collect(),
         }
     }
-
-    /// Converts a string into a path with spans offset by a set amount
-    /// 
-    /// This was mainly made for tests, but it might be useful elsewhere.
-    /// 
-    /// ### Example:
-    /// 
-    /// ```
-    /// # use parser::parser::prelude::*;
-    /// # use path::*;
-    /// assert_eq!(
-    ///     Path::from_offset_string(10, "this.x"), 
-    ///     span(10..16, Path::new(
-    ///         span(10..14, PathRoot::This), 
-    ///         vec![span(15..16, PathPart::Id(Ident::from("x")))]
-    ///     ))
-    /// );
-    /// ```
-    /// 
-    /// ### Panics:
-    /// 
-    /// The same as `<Path as From<&str>>::from`
-    pub fn from_offset_string(offset: usize, string: &str) -> S<Path> {
-        offset_string(offset, string).as_str().into()
-    }
 }
+
+#[imply] impl Parsable<S<Type>> for Type {}
 
 impl From<Vec<PathPart>> for Path {
     /// Turns a vector of parts into a path, with the first part as the root
@@ -110,21 +88,6 @@ fn string_to_path_part(string: &str) -> PathPart {
         "super" => PathPart::Super,
         "self" => PathPart::Selff,
         x => PathPart::Id(x.into()),
-    }
-}
-
-impl From<&str> for S<Path> {
-    /// Converts a string into a path
-    /// 
-    /// ### Panics
-    /// 
-    /// - If the lexer or parser fails
-    ///     - If there is more than one colon
-    ///     - If there any tokens other than identifiers, `:`s, or `.`s
-    ///     - If operators are doubled up
-    ///     - etc
-    fn from(string: &str) -> S<Path> {
-        lex_to_parse(string, parse!(Path), "Path")
     }
 }
 

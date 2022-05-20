@@ -26,5 +26,9 @@
 	"Add Documentation Notice": {
 		"prefix": "//ADDDOC",
 		"body": "//ADDDOC",
+	},
+	"Imply Parsable": {
+		"prefix": "#[imply] impl Parsable<",
+		"body": "#[imply] impl Parsable<${2:output}> for ${1:parent} {}"
 	}
 }

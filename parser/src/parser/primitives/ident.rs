@@ -6,12 +6,12 @@ use crate::parser::prelude::*;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Ident(String);
 
+#[derive_parsable]
 impl Ident {
     pub fn new(id: String) -> Ident {
         Ident(id)
     }
 
-    /// Parses a single [`IDENTIFIER`] into an [`Ident`]
     pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
         filter(|tok| matches!(tok, IDENTIFIER(_)))
             .labelled("ident")
@@ -19,6 +19,8 @@ impl Ident {
             .map_with_span(map_span)
     }
 }
+
+#[imply] impl Parsable<S<Ident>> for Ident {}
 
 impl fmt::Debug for Ident {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

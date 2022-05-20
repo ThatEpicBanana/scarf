@@ -1,4 +1,4 @@
-use ::macros::parser_util;
+use ::macros::{derive_parsable, imply, derive_parsable_from_impl};
 
 use crate::parser::prelude::*;
 
@@ -7,11 +7,13 @@ pub enum Type {
     Temp,
 }
 
-#[parser_util]
+#[derive_parsable]
 impl Type {
-    pub fn parser() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {                
+    pub fn parser() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {       
         any().to(Type::Temp)
             .labelled("type")
             .map_with_span(map_span)
     }
 }
+
+#[imply] impl Parsable<S<Type>> for Type {}

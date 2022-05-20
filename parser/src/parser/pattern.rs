@@ -31,6 +31,7 @@ pub struct SinglePattern {
     pub pattern: S<Pattern>,
 }
 
+#[derive_parsable]
 impl SinglePattern {
     pub fn simple(pattern: S<Pattern>) -> SinglePattern {
         SinglePattern { attributes: vec![], pattern }
@@ -71,11 +72,9 @@ impl SinglePattern {
             ).labelled("pattern").map_with_span(|(attributes, pattern), spn| Box::new(map_span(SinglePattern { attributes, pattern }, spn)))
         )
     }
-
-    pub fn from_offset_string(offset: usize, string: &str) -> Box<S<SinglePattern>> {
-        offset_string(offset, string).as_str().into()
-    }
 }
+
+#[imply] impl Parsable<Box<S<SinglePattern>>> for SinglePattern {}
 
 // conversion from pattern to single pattern
 impl From<S<Pattern>> for S<SinglePattern> {
@@ -90,17 +89,6 @@ impl From<S<DataPattern>> for S<SinglePattern> {
         Spanned::new(pat.span(), SinglePattern::simple(
             Spanned::new(pat.span(), Pattern::Data { typ: None, pat })
         ))
-    }
-}
-
-impl From<&str> for Box<S<SinglePattern>> {
-    /// Converts a string into a boxed [`SinglePattern`]
-    /// 
-    /// ### Panics
-    /// 
-    /// - If the lexer or parser fails
-    fn from(string: &str) -> Box<S<SinglePattern>> {
-        lex_to_parse(string, parse!(SinglePattern), "SinglePattern")
     }
 }
 

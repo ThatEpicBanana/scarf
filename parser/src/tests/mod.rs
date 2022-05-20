@@ -68,7 +68,7 @@ fn inner_attributes() {
         vec![
             // -- #![doc = "doc comment"]
             map_ok_span(Attribute::new_inner(
-                Path::from_offset_string(3, "doc"), //TODO: add tests for path parser
+                Path::parse_offset(3, "doc"), //TODO: add tests for path parser
                 map_span(vec![(string("doc comment"), 9..22)], 7..22)
             ), 2..23),
             // -- //! also doc comment
@@ -77,7 +77,7 @@ fn inner_attributes() {
             ), 27..49),
             // -- #![thate:raycast.idk(pog, class)]
             map_ok_span(Attribute::new_inner(
-                Path::from_offset_string(54, "thate:raycast.idk"), 
+                Path::parse_offset(54, "thate:raycast.idk"), 
                 map_span(vec![
                     (OP_LPARA, 71..72),
                         (id("pog"), 72..75),
@@ -172,7 +172,7 @@ fn patterns() {
             ])).into(),
             // enum-ident error check
             s(340..353, Pattern::Enum {
-                path: s(340..350, GenericPath::new(Path::from_offset_string(340, "enumm.path"), None)),
+                path: s(340..350, GenericPath::new(Path::parse_offset(340, "enumm.path"), None)),
                 pat: s(350..353, DataPattern::Tuple(Err)),
                 typ: None,
             }).into(),
@@ -180,8 +180,8 @@ fn patterns() {
             s(378..549, Pattern::Enum {
                 // this.name<generics>()
                 path: s(378..397, GenericPath::new(
-                    Path::from_offset_string(378, "this.name"), 
-                    Some(GenericArguments::from_offset_string(387, "<generics>"))
+                    Path::parse_offset(378, "this.name"), 
+                    Some(GenericArguments::parse_offset(387, "<generics>"))
                 )),
                 pat: s(397..549, DataPattern::tuple(vec![
                     // _name: type @ 1
