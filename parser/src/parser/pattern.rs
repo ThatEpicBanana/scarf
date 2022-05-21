@@ -74,8 +74,6 @@ impl SinglePattern {
     }
 }
 
-#[imply] impl Parsable<Box<S<SinglePattern>>> for SinglePattern {}
-
 // conversion from pattern to single pattern
 impl From<S<Pattern>> for S<SinglePattern> {
     fn from(pattern: S<Pattern>) -> Self {

@@ -25,6 +25,6 @@ pub use crate::{
     }
 };
 
-pub use ::macros::{derive_parsable, imply};
+pub use ::macros::{derive_parsable};
 
 pub use chumsky::prelude::*;

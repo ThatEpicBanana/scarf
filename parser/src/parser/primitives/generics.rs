@@ -53,5 +53,3 @@ impl GenericArguments {
                     .recover_with(nested_delimiters(OP_LANGLE, OP_RANGLE, [], err_span))
     }
 }
-
-#[imply] impl Parsable<S<Opt<GenericArguments>>> for GenericArguments {}
