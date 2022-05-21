@@ -70,8 +70,6 @@ impl Path {
     }
 }
 
-#[imply] impl Parsable<S<Type>> for Type {}
-
 impl From<Vec<PathPart>> for Path {
     /// Turns a vector of parts into a path, with the first part as the root
     /// 

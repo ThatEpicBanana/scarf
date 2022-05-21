@@ -7,11 +7,9 @@ pub enum Type {
 
 #[derive_parsable]
 impl Type {
-    pub fn parser() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {       
+    pub fn parser() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {     
         any().to(Type::Temp)
             .labelled("type")
             .map_with_span(map_span)
     }
 }
-
-#[imply] impl Parsable<S<Type>> for Type {}

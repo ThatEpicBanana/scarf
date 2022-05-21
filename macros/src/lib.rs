@@ -8,7 +8,6 @@ use syn::{self, *};
 //TODO: token! macro ex: token!(func)
 
 /// Implies `Parsable` and [`From<&str>`] using a given `parser` function. <br>
-/// It is recommended to use [`imply`] to imply the trait implementation's existence.
 /// 
 /// **Note:** The output doesn't have to be the same as the type that will implement `Parsable.`
 /// 
@@ -32,8 +31,6 @@ use syn::{self, *};
 ///             .map_with_span(map_span)
 ///     }
 /// }
-/// 
-/// #[imply] impl Parsable<S<Ident>> for Ident {}
 /// ```
 #[proc_macro_attribute]
 pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
@@ -114,7 +111,7 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut out = item.clone();
 
     out.extend(TokenStream::from(quote! {
-
+        #[automatically_derived]
         impl Parsable<#return_type> for #typ {
             fn parse(string: &str) -> #return_type {
                 let len = string.len();
@@ -127,6 +124,7 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
+        #[automatically_derived]
         impl From<&str> for #return_type {
             /// Converts a string into a [`#typ`]
             /// 
@@ -142,10 +140,10 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
     out
 }
 
-/// Used to imply the existence of an item to a language server.
-/// 
-/// It really just replaces the item with nothing.
-#[proc_macro_attribute]
-pub fn imply(_: TokenStream, _: TokenStream) -> TokenStream {
-    quote!{}.into()
-}
+// /// Used to imply the existence of an item to a language server.
+// /// 
+// /// It really just replaces the item with nothing.
+// #[proc_macro_attribute]
+// pub fn imply(_: TokenStream, _: TokenStream) -> TokenStream {
+//     quote!{}.into()
+// }

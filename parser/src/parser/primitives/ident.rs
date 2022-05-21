@@ -20,8 +20,6 @@ impl Ident {
     }
 }
 
-#[imply] impl Parsable<S<Ident>> for Ident {}
-
 impl fmt::Debug for Ident {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\"{}\"id", &self.0)
