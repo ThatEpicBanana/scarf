@@ -111,6 +111,7 @@ pub struct GenericPath {
     generics: Option<S<Opt<GenericArguments>>>,
 }
 
+#[derive_parsable]
 impl GenericPath {
     /// Creates a new [`GenericPath`] using a spanned [`Path`] and [`GenericArguments`]
     pub fn new(path: S<Path>, generics: Option<S<Opt<GenericArguments>>>) -> Self {

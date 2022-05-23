@@ -13,6 +13,7 @@ pub enum Visibility {
     PubPath(S<Opt<S<Path>>>),
 }
 
+#[derive_parsable]
 impl Visibility {
     pub fn parser() -> impl Parser<Token, S<Visibility>, Error = Simple<Token>> {
         just(KW_PRV).to(Visibility::Prv)

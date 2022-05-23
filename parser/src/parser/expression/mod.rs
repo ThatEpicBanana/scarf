@@ -7,6 +7,7 @@ pub enum Expression {
     Temp,
 }
 
+#[derive_parsable]
 impl Expression {
     pub fn parser() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {
         any().to(Expression::Temp)

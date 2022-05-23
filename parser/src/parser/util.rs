@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use crate::parser::prelude::*;
 
+//TODO: add files to spans
 /// A type representing a span of input text 
 pub type Span = std::ops::Range<usize>;
 
@@ -229,7 +230,7 @@ where
     /// # use parser::parser::prelude::*;
     /// # use path::*;
     /// assert_eq!(
-    ///     Path::from_offset_string(10, "this.x"), 
+    ///     Path::parse_offset(10, "this.x"), 
     ///     span(10..16, Path::new(
     ///         span(10..14, PathRoot::This), 
     ///         vec![span(15..16, PathPart::Id(Ident::from("x")))]

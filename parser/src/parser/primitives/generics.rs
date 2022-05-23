@@ -6,6 +6,7 @@ pub struct GenericArgument {
     id: Option<S<Ident>>,
 }
 
+#[derive_parsable]
 impl GenericArgument {
     /// Creates a Generic Argument out of a spanned [`Type`] and optional [`Ident`] 
     pub fn new(typ: S<Type>, id: Option<S<Ident>>) -> GenericArgument {

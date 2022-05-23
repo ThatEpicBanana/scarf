@@ -2,22 +2,20 @@ pub use crate::{
 
     lexer::prelude::*,
 
-    parser::{
-        *,
-        util::{
-            *,
+    parser::{ *,
+        util::{ *,
             Opt::{Ok, Err},
-        },
-        typ::Type,
-        item::{
-            Item,
-            ItemVariant,
         },
         primitives::{
             *,
             ident::Ident,
             path::{Path, GenericPath},
             generics::GenericArguments,
+        },
+        typ::Type,
+        item::{
+            Item,
+            ItemVariant,
         },
         expression::{
             Expression,
