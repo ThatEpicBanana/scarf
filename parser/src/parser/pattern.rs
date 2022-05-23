@@ -32,17 +32,16 @@ pub struct SinglePattern {
     pub pattern: S<Pattern>,
 }
 
-#[derive_parsable]
+// #[derive_parsable]
 impl SinglePattern {
     pub fn simple(pattern: S<Pattern>) -> SinglePattern {
         SinglePattern { attributes: vec![], pattern }
     }
 
-    //TODO: think this out more - idk if a 'static lifetime is strictly necessary here, but it works for now
-    fn parser_inner(
-        single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static,
+    fn parser_inner<'a>(
+        single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'a,
         default_allowed: bool
-    ) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static {
+    ) -> BoxedParser<'a, Token, Box<S<SinglePattern>>, Simple<Token>> {
         attribute::outer_attribute().repeated().then(
             choice((
                 // enum         -- path.path(data): type
@@ -73,7 +72,7 @@ impl SinglePattern {
             )).labelled("pattern variant").map_with_span(map_span)
         ).labelled("pattern").map_with_span(|(attributes, pattern), spn| 
             Box::new(map_span(SinglePattern { attributes, pattern }, spn))
-        ).boxed()
+        ).boxed::<'a>()
     }
 
     pub fn parser_no_default() -> SPatParser!() {

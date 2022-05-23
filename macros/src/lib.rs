@@ -34,7 +34,11 @@ use syn::{self, *};
 /// ```
 #[proc_macro_attribute]
 pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
-    let item_ast: syn::ItemImpl = syn::parse(item.clone()).unwrap();
+    // let item_ast: Result<syn::ItemImpl> = syn::parse(item.clone());
+
+    // if matches!(item_ast, Err(_)) { println!("{:#?}", syn::parse::<syn::Item>(item.clone())); }
+
+    let item_ast: syn::ItemImpl = syn::parse(item.clone()).expect("Failed parsing impl item");
 
     // get parent type from impl
     let typ = &*item_ast.self_ty;
