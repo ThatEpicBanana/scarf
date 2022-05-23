@@ -39,7 +39,10 @@ impl SinglePattern {
     }
 
     //TODO: think this out more - idk if a 'static lifetime is strictly necessary here, but it works for now
-    fn parser_inner(single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static, default_allowed: bool) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static {
+    fn parser_inner(
+        single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static,
+        default_allowed: bool
+    ) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static {
         attribute::outer_attribute().repeated().then(
             choice((
                 // enum         -- path.path(data): type
@@ -76,7 +79,7 @@ impl SinglePattern {
     pub fn parser_no_default() -> SPatParser!() {
         Self::parser_inner(Self::parser(), false)
     }
-    
+
     pub fn parser() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone {
         recursive(|single_pattern| 
             Self::parser_inner(single_pattern, true)
