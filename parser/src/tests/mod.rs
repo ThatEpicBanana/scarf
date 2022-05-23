@@ -1,4 +1,4 @@
-use crate::parser::prelude::*;
+use crate::parser::prelude::{*, pattern::SinglePattern};
 
 use chumsky::{Stream, error::SimpleReason};
 use std::{fmt::Debug, collections::HashMap, cmp::Ordering};
@@ -224,11 +224,37 @@ fn patterns() {
                 ])),
                 typ: None,
             }).into(),
-        ].into_iter().map(|x| Box::new(x)).collect(), 
+        ], 
         HashMap::from([
             (286..287, (SimpleReason::Unexpected, Some(OP_STAR))),
             (351..352, (SimpleReason::Unexpected, Some(OP_STAR))),
             (426..545, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
         ])
+    );
+}
+
+
+
+#[test]
+fn pattern_let() {
+    use pattern::{Pattern, IdentifierInfo};
+
+    test_parser(include_str!("pattern_let.sf"), 
+        just(KW_LET)
+            .ignore_then(SinglePattern::parser_no_default())
+        .then_ignore(just(OP_EQUAL))
+            .then(parse!(Expression))
+                .separated_by(just(OP_SEMI)).allow_trailing()
+                .then_ignore(end()),
+        vec![
+            (
+                span(4..5, Pattern::Identifier { 
+                    id: span(4..5, "x".into()), 
+                    info: span(6..5, IdentifierInfo::empty()) 
+                }).into(),
+                span(8..10, Expression::Temp)
+            )
+        ],
+        HashMap::from([])
     );
 }

@@ -10,6 +10,7 @@ pub struct MultiPattern {
     pub patterns: Vec<Box<S<SinglePattern>>>,
 }
 
+#[derive_parsable]
 impl MultiPattern {
     pub fn new(patterns: Vec<Box<S<SinglePattern>>>) -> MultiPattern {
         MultiPattern { patterns }
@@ -37,39 +38,48 @@ impl SinglePattern {
         SinglePattern { attributes: vec![], pattern }
     }
 
-    //TODO: make a parser where the top level does not allow for defaults
-    pub fn parser() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> {
+    //TODO: think this out more - idk if a 'static lifetime is strictly necessary here, but it works for now
+    fn parser_inner(single_pattern: impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static, default_allowed: bool) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'static {
+        attribute::outer_attribute().repeated().then(
+            choice((
+                // enum         -- path.path(data): type
+                parse!(GenericPath)
+                .then(DataPattern::parser(single_pattern.clone()))
+                .then(typ().or_not())
+                        .map(|((path, pat), typ)|
+                            Pattern::Enum { typ, pat, path }
+                        ),
+                // data         -- (data): type
+                DataPattern::parser(single_pattern)
+                .then(typ().or_not())
+                        .map(|(pat, typ)| 
+                            Pattern::Data { typ, pat }
+                        ),
+                // identifier   -- name: type @ bound
+                    // name
+                parse!(Ident)
+                    .then_ignore(none_of([OP_DOT, OP_LPARA, OP_LCURLY, OP_LSQUARE]).rewind())
+                .then(IdentifierInfo::parser(OP_COLON, default_allowed))
+                        .map(|(id, info)| Pattern::Identifier { id, info }),
+                // rest pattern -- ...name
+                rest()
+                        .map(Pattern::rest_from_tuple),
+                // bound        -- @ bound
+                bound() 
+                        .map(Pattern::Bound),
+            )).labelled("pattern variant").map_with_span(map_span)
+        ).labelled("pattern").map_with_span(|(attributes, pattern), spn| 
+            Box::new(map_span(SinglePattern { attributes, pattern }, spn))
+        ).boxed()
+    }
+
+    pub fn parser_no_default() -> SPatParser!() {
+        Self::parser_inner(Self::parser(), false)
+    }
+    
+    pub fn parser() -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone {
         recursive(|single_pattern| 
-            attribute::outer_attribute().repeated()
-            .then(
-                choice((
-                    // enum         -- path.path(data): type
-                    parse!(GenericPath)
-                    .then(DataPattern::parser(single_pattern.clone()))
-                    .then(typ().or_not())
-                            .map(|((path, pat), typ)|
-                                Pattern::Enum { typ, pat, path }
-                            ),
-                    // data         -- (data): type
-                    DataPattern::parser(single_pattern)
-                    .then(typ().or_not())
-                            .map(|(pat, typ)| 
-                                Pattern::Data { typ, pat }
-                            ),
-                    // identifier   -- name: type @ bound
-                        // name
-                    parse!(Ident)
-                        .then_ignore(none_of([OP_DOT, OP_LPARA, OP_LCURLY, OP_LSQUARE]).rewind())
-                    .then(IdentifierInfo::parser(OP_COLON))
-                            .map(|(id, info)| Pattern::Identifier { id, info }),
-                    // rest pattern -- ...name
-                    rest()
-                            .map(Pattern::rest_from_tuple),
-                    // bound        -- @ bound
-                    bound() 
-                            .map(Pattern::Bound),
-                )).labelled("pattern variant").map_with_span(map_span)
-            ).labelled("pattern").map_with_span(|(attributes, pattern), spn| Box::new(map_span(SinglePattern { attributes, pattern }, spn)))
+            Self::parser_inner(single_pattern, true)
         )
     }
 }
@@ -91,6 +101,19 @@ impl From<S<DataPattern>> for S<SinglePattern> {
 }
 
 
+// conversion from pattern to boxed single pattern
+impl From<S<Pattern>> for Box<S<SinglePattern>> {
+    fn from(pattern: S<Pattern>) -> Self {
+        Box::new(pattern.into())
+    }
+}
+
+// conversion from data pattern to boxed single pattern
+impl From<S<DataPattern>> for Box<S<SinglePattern>> {
+    fn from(pattern: S<DataPattern>) -> Self {
+        Box::new(pattern.into())
+    }
+}
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -138,13 +161,13 @@ impl IdentifierInfo {
     pub fn has_bound   (&self) -> bool { self. bound .is_some() }
     pub fn has_default (&self) -> bool { self.default.is_some() }
 
-    fn parser(type_token: Token) -> impl Parser<Token, S<IdentifierInfo>, Error = Simple<Token>> {
+    fn parser(type_token: Token, default_allowed: bool) -> impl Parser<Token, S<IdentifierInfo>, Error = Simple<Token>> {
         // : type
         typ_tok(type_token).or_not()
         // @ bound
         .then(bound().or_not())
         // = default
-        .then(default().or_not())
+        .then(if default_allowed { default().or_not().boxed() } else { empty().to(None).boxed() })
                 .map(IdentifierInfo::from_tuple)
                 .map_with_span(map_span)
     }
@@ -277,7 +300,7 @@ impl CompoundPatternField {
                     .map(|(key, pattern)| CompoundPatternField::Pattern { key, pattern }),
             // key as type @ bound = default
             parse!(CompoundPatternKey)
-            .then(IdentifierInfo::parser(KW_AS))
+            .then(IdentifierInfo::parser(KW_AS, true))
                     .map(|(key, info)| CompoundPatternField::Simple { key, info }),
             // ...name
             rest()
@@ -321,6 +344,7 @@ impl CompoundPatternKey {
 
 
 //TODO: add argument for expression parser needed due to recursion
+// replace parser() with inner_parser(expression) then add a parser() with the normal expression parser for parse!()
 fn bound() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {
     just(OP_AT)
         .ignore_then(parse!(Expression))
