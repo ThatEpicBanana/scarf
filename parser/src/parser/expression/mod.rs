@@ -9,7 +9,7 @@ pub enum Expression {
 
 #[derive_parsable]
 impl Expression {
-    pub fn parser() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {
+    pub fn parser() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone {
         any().to(Expression::Temp)
             .labelled("expression")
             .map_with_span(map_span)

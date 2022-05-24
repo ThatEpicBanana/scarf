@@ -241,7 +241,7 @@ fn pattern_let() {
 
     test_parser(include_str!("pattern_let.sf"), 
         just(KW_LET)
-            .ignore_then(SinglePattern::parser_no_default())
+            .ignore_then(SinglePattern::parser_no_default(parse!(Expression)))
         .then_ignore(just(OP_EQUAL))
             .then(parse!(Expression))
                 .separated_by(just(OP_SEMI)).allow_trailing()
