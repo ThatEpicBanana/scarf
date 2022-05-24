@@ -26,7 +26,7 @@ impl MultiPattern {
     pub fn parser() -> impl Parser<Token, MultiPattern, Error = Simple<Token>> {
         parse!(SinglePattern)
             .separated_by(just(OP_BAR))
-            .map(MultiPattern::new)
+            .map(MultiPattern::new).labelled("multi pattern")
     }
 }
 
@@ -78,9 +78,9 @@ impl SinglePattern {
                 bound(expr) 
                         .map(Pattern::Bound),
             )).labelled("pattern variant").map_with_span(map_span)
-        ).labelled("pattern").map_with_span(|(attributes, pattern), spn| 
+        ).map_with_span(|(attributes, pattern), spn| 
             Box::new(map_span(SinglePattern { attributes, pattern }, spn))
-        ).boxed()
+        ).labelled("pattern").boxed()
     }
 
     /// Parses a [`SinglePattern`] with a given `expression_parser` and no defaults allowed in the root (used for let statements)
@@ -198,7 +198,7 @@ impl IdentifierInfo {
         // = default
         .then(if default_allowed { default(expr).or_not().boxed() } else { empty().to(None).boxed() })
                 .map(IdentifierInfo::from_tuple)
-                .map_with_span(map_span)
+                .map_with_span(map_span).labelled("identifier info")
     }
 }
 
@@ -241,12 +241,12 @@ impl DataPattern {
             Self::pattern_list(single_pattern.clone()).delimited_by(just(OP_LPARA), just(OP_RPARA))
                 .map(Ok)
                 .recover_with(nested_delimiters(OP_LPARA, OP_RPARA, [(OP_LSQUARE, OP_RSQUARE), (OP_LCURLY, OP_RCURLY)], |_| Err))
-                .map(DataPattern::Tuple),
+                .map(DataPattern::Tuple).labelled("tuple pattern"),
             // list [pattern,]
             Self::pattern_list(single_pattern.clone()).delimited_by(just(OP_LSQUARE), just(OP_RSQUARE))
                 .map(Ok)
                 .recover_with(nested_delimiters(OP_LSQUARE, OP_RSQUARE, [(OP_LPARA, OP_RPARA), (OP_LCURLY, OP_RCURLY)], |_| Err))
-                .validate(Self::validate_list),
+                .validate(Self::validate_list).labelled("list pattern"),
             // compound {field,}
             CompoundPatternField::parser(expr, single_pattern)
                 // field, field,
@@ -254,8 +254,8 @@ impl DataPattern {
                     // { field, }
                     .delimited_by(just(OP_LCURLY), just(OP_RCURLY)) 
                     .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
-                        .map(DataPattern::Compound),
-        )).map_with_span(map_span)
+                        .map(DataPattern::Compound).labelled("compound pattern"),
+        )).map_with_span(map_span).labelled("data pattern")
     }
 
     fn validate_list(list: Opt<Vec<Box<Spanned<SinglePattern>>>>, span: Span, emit: &mut dyn FnMut(Simple<Token>)) -> DataPattern {
@@ -334,7 +334,7 @@ impl CompoundPatternField {
             // ...name
             rest()
                     .map(CompoundPatternField::rest_from_tuple),
-        )).map_with_span(map_span)
+        )).map_with_span(map_span).labelled("compound pattern field")
     }
 }
 
