@@ -12,6 +12,8 @@ macro_rules! ExprParser {
     (           ) => { impl Parser<Token,     S<Expression>,     Error = Simple<Token>> + Clone      };
 }
 
+
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MultiPattern {
     pub patterns: Vec<Box<S<SinglePattern>>>,
@@ -44,6 +46,8 @@ impl SinglePattern {
     pub fn simple(pattern: S<Pattern>) -> SinglePattern {
         SinglePattern { attributes: vec![], pattern }
     }
+
+
 
     fn parser_inner<'a>(
         expr: ExprParser!('a),
@@ -82,6 +86,8 @@ impl SinglePattern {
             Box::new(map_span(SinglePattern { attributes, pattern }, spn))
         ).labelled("pattern").boxed()
     }
+
+
 
     /// Parses a [`SinglePattern`] with a given `expression_parser` and no defaults allowed in the root (used for let statements)
     pub fn parser_no_default<'a>(expression_parser: ExprParser!('a)) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'a {
@@ -125,7 +131,6 @@ impl From<S<DataPattern>> for S<SinglePattern> {
     }
 }
 
-
 // conversion from pattern to boxed single pattern
 impl From<S<Pattern>> for Box<S<SinglePattern>> {
     fn from(pattern: S<Pattern>) -> Self {
@@ -139,6 +144,9 @@ impl From<S<DataPattern>> for Box<S<SinglePattern>> {
         Box::new(pattern.into())
     }
 }
+
+
+
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -158,6 +166,7 @@ impl Pattern {
         Pattern::Rest{ id: tuple.0, typ: tuple.1 }
     }
 }
+
 
 
 
@@ -182,9 +191,13 @@ impl IdentifierInfo {
         IdentifierInfo::new(typ, bound, default)
     }
 
+
+
     pub fn has_type    (&self) -> bool { self.  typ  .is_some() }
     pub fn has_bound   (&self) -> bool { self. bound .is_some() }
     pub fn has_default (&self) -> bool { self.default.is_some() }
+
+
 
     fn parser<'a>(
         expr: impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone + 'a, 
@@ -201,6 +214,8 @@ impl IdentifierInfo {
                 .map_with_span(map_span).labelled("identifier info")
     }
 }
+
+
 
 
 
@@ -226,6 +241,7 @@ impl DataPattern {
     pub fn compound(list: Vec<S<CompoundPatternField>>) -> DataPattern {
         Self::Compound(Ok(list))
     }
+
 
 
     #[inline]
@@ -257,6 +273,7 @@ impl DataPattern {
                         .map(DataPattern::Compound).labelled("compound pattern"),
         )).map_with_span(map_span).labelled("data pattern")
     }
+
 
     fn validate_list(list: Opt<Vec<Box<Spanned<SinglePattern>>>>, span: Span, emit: &mut dyn FnMut(Simple<Token>)) -> DataPattern {
         if list.is_ok() && list.len() > 1 {
@@ -319,6 +336,7 @@ impl CompoundPatternField {
     }
 
 
+
     fn parser<'a>(expr: ExprParser!('a), single_pattern: SPatParser!('a)) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> + 'a {
         // key as type @ bound = default | key: pattern | key | ...
         choice((
@@ -369,6 +387,8 @@ impl CompoundPatternKey {
         ).labelled("compound pattern key")
     }
 }
+
+
 
 
 fn bound(expr: impl Parser<Token, S<Expression>, Error = Simple<Token>>) -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {
