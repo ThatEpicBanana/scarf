@@ -50,16 +50,17 @@ pub enum Token {
     DOC_COMMENT{com: String, inner: bool},
 }
 
-// impl Token {
-//     /// Turns an IDENTIFIER token into an Ident parser atom
-//     pub fn ident(&self) -> Ident {
-//         match &self {
-//             IDENTIFIER(x) => Ident::new(x.to_string()),
-//             _ => panic!("Tried to turn a non-identifier token into an Ident!")
-//         }
-//     }
-// }
-
+impl Token {
+    pub fn is_bool        (&self) -> bool { matches!(&self,       &BOOLEAN(_)) }
+    pub fn is_string      (&self) -> bool { matches!(&self,        &STRING(_)) }
+    pub fn is_int         (&self) -> bool { matches!(&self,       &INTEGER(_)) }
+    pub fn is_float       (&self) -> bool { matches!(&self,         &FLOAT(_)) }
+    pub fn is_ident       (&self) -> bool { matches!(&self,    &IDENTIFIER(_)) }
+    pub fn is_keyword     (&self) -> bool { matches!(&self,       &KEYWORD(_)) }
+    pub fn is_unk_op      (&self) -> bool { matches!(&self,  &UNK_OPERATOR(_)) }
+    pub fn is_operator    (&self) -> bool { matches!(&self,     &OPERATOR{..}) }
+    pub fn is_doc_comment (&self) -> bool { matches!(&self,  &DOC_COMMENT{..}) }
+}
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

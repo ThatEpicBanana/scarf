@@ -7,7 +7,7 @@ use syn::{self, *};
 
 //TODO: token! macro ex: token!(func)
 
-/// Implies `Parsable` and [`From<&str>`] using a given `parser` function. <br>
+/// Implies `Parsable` and [`From<&str>`] using a given `parser` function.
 /// 
 /// **Note:** The output doesn't have to be the same as the type that will implement `Parsable.`
 /// 
@@ -25,7 +25,7 @@ use syn::{self, *};
 ///     }
 /// 
 ///     pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
-///         filter(|tok| matches!(tok, IDENTIFIER(_)))
+///         filter(Token::is_ident)
 ///             .labelled("ident")
 ///             .map(|tok| tok.into())
 ///             .map_with_span(map_span)

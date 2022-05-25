@@ -379,7 +379,7 @@ impl From<S<usize>> for CompoundPatternKey {
 impl CompoundPatternKey {
     fn parser() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
         parse!(Ident).map(CompoundPatternKey::Ident)
-        .or(filter(|tok| matches!(tok, INTEGER(_)))
+        .or(filter(Token::is_int)
             .map_with_span(|tok, spn| 
                 if let INTEGER(x) = tok { CompoundPatternKey::Index(map_span(x, spn)) }
                 else { unreachable!() } // unreachable due to filter

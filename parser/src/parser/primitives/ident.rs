@@ -13,7 +13,7 @@ impl Ident {
     }
 
     pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
-        filter(|tok| matches!(tok, IDENTIFIER(_)))
+        filter(Token::is_ident)
             .labelled("ident")
             .map(|tok| tok.into())
             .map_with_span(map_span)
