@@ -100,7 +100,7 @@ impl SinglePattern {
 
     /// Parses a [`SinglePattern`] with a given `expression_parser` to allow for recursion
     pub fn parser_with_expr<'a>(expression_parser: ExprParser!('a)) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'a {
-        recursive(|single_pattern| 
+        recursive(|single_pattern|
             Self::parser_inner(
                 expression_parser, 
                 single_pattern, 
@@ -224,7 +224,7 @@ pub enum DataPattern {
     List     ( Opt<Vec<Box<S<SinglePattern>>>>   ),
     Tuple    ( Opt<Vec<Box<S<SinglePattern>>>>   ),
     Compound ( Opt<Vec<S<CompoundPatternField>>> ),
-} 
+}
 
 impl DataPattern {
     /// Creates a [`DataPattern::List`] from a [`Vec`] of [`SinglePattern`]s
@@ -268,7 +268,7 @@ impl DataPattern {
                 // field, field,
                 .separated_by(just(OP_COMM)).allow_trailing() 
                     // { field, }
-                    .delimited_by(just(OP_LCURLY), just(OP_RCURLY)) 
+                    .delimited_by(just(OP_LCURLY), just(OP_RCURLY))
                     .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
                         .map(DataPattern::Compound).labelled("compound pattern"),
         )).map_with_span(map_span).labelled("data pattern")

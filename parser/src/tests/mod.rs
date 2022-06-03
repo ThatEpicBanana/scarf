@@ -20,6 +20,9 @@ pub fn test_parser<T>(
     expected: T, 
     expected_errors: HashMap<Span, (SimpleReason<Token, Span>, Option<Token>)>
 ) where T: PartialEq + Eq + Debug + Clone {
+    #[cfg(unix)]
+    let input = input.replace("\n", "\r\n");
+
     let len = input.len();
 
     // try lexing
@@ -32,7 +35,7 @@ pub fn test_parser<T>(
     let (out, parser_errors) = if let Some(out) = out {
         // if lexer succeeds, try parsing
         parser.parse_recovery_verbose(Stream::from_iter(len..len + 1, out.into_iter()))
-    } else { 
+    } else {
         // if lexer fails, output lexer errors
         panic!("Lexer Errors found: {:#?}\nRecovered Syntax Tree: {:#?}", lexer_errors, out);
     };
