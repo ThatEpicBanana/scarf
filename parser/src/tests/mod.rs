@@ -71,7 +71,7 @@ fn inner_attributes() {
         vec![
             // -- #![doc = "doc comment"]
             map_ok_span(Attribute::new_inner(
-                Path::parse_offset(3, "doc"), //TODO: add tests for path parser
+                Path::parse_offset(3, "doc"),
                 map_span(vec![(string("doc comment"), 9..22)], 7..22)
             ), 2..23),
             // -- //! also doc comment
@@ -126,7 +126,7 @@ fn patterns() {
                 )),
                 // tag: {}
                 s(47..205, CompoundPatternField::pattern(
-                    s(47..50, Ident::from("tag")), 
+                    s(47..50, Ident::from("tag")),
                     s(52..205, DataPattern::compound(vec![
                         // Enchantments: []
                         s(63..198, CompoundPatternField::pattern(
@@ -141,13 +141,13 @@ fn patterns() {
                                             s(111..113, Ident::from("id")), 
                                             // ench_id
                                             s(115..122, Pattern::id( 
-                                                s(115..122, Ident::from("ench_id")), 
+                                                s(115..122, Ident::from("ench_id")),
                                                 s(122..122, IdentifierInfo::empty()) 
                                             ))
                                         )),
                                         // lvl as int
                                         span(141..151, CompoundPatternField::simple( 
-                                            span(141..144, Ident::from("lvl")), 
+                                            span(141..144, Ident::from("lvl")),
                                             span(145..151, IdentifierInfo::new(Some(s(148..151, Type::Temp)), None, None))
                                         )),
                                     ])),

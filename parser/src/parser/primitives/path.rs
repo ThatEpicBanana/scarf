@@ -1,5 +1,7 @@
 use crate::parser::prelude::*;
 
+// TODO: other types of paths - import, generic parameters, indexed
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {
     This,
@@ -56,7 +58,7 @@ impl Path {
     }
 
     /// Turns a vector of parts into a path, with the first part as the root
-    /// 
+    ///
     /// ### Panics
     ///
     /// - If the list has less than one element
