@@ -3,6 +3,7 @@ use crate::parser::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {
     This,
+    Selff,
     Basket,
     Part(PathPart)
 }
@@ -10,7 +11,6 @@ pub enum PathRoot {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathPart {
     Super,
-    Selff,
     Id(Ident)
 }
 
@@ -58,12 +58,12 @@ impl Path {
     /// Turns a vector of parts into a path, with the first part as the root
     /// 
     /// ### Panics
-    /// 
+    ///
     /// - If the list has less than one element
     pub fn parts(parts: Vec<PathPart>) -> Path {
         let mut parts = parts.into_iter();
 
-        Path { 
+        Path {
             root: no_span(PathRoot::Part(parts.next().expect("List given must have at least one element!"))),
             parts: parts.map(no_span).collect(),
         }
@@ -72,7 +72,7 @@ impl Path {
 
 impl From<Vec<PathPart>> for Path {
     /// Turns a vector of parts into a path, with the first part as the root
-    /// 
+    ///
     /// ### Panics
     /// 
     /// - If the list has less than one element
@@ -84,7 +84,6 @@ impl From<Vec<PathPart>> for Path {
 fn string_to_path_part(string: &str) -> PathPart {
     match string {
         "super" => PathPart::Super,
-        "self" => PathPart::Selff,
         x => PathPart::Id(x.into()),
     }
 }
@@ -92,6 +91,7 @@ fn string_to_path_part(string: &str) -> PathPart {
 fn path_root() -> impl Parser<Token, S<PathRoot>, Error = Simple<Token>> {
     just(KW_BASKET).to(PathRoot::Basket)
     .or(just(KW_THIS).to(PathRoot::This))
+    .or(just(KW_SELF).to(PathRoot::Selff))
         .map_with_span(map_span)
     .or(path_part().map(|Spanned(spn, part)| map_span(PathRoot::Part(part), spn.unwrap())))
     .labelled("path root")
@@ -99,7 +99,6 @@ fn path_root() -> impl Parser<Token, S<PathRoot>, Error = Simple<Token>> {
 
 fn path_part() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> {
     just(KW_SUPER).to(PathPart::Super)
-    .or(just(KW_SELF).to(PathPart::Selff))
         .map_with_span(map_span)
     .or(parse!(Ident).map(|Spanned(spn, id)| map_span(PathPart::Id(id), spn.unwrap())))
     .labelled("path part")
