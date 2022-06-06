@@ -121,7 +121,7 @@ fn patterns() {
                 )),
                 // Slot: @ 1
                 s(31..40, CompoundPatternField::pattern(
-                    s(31..35, Ident::from("Slot")), 
+                    s(31..35, Ident::from("Slot")),
                     s(37..40, Bound(s(39..40, Expression::Temp)))
                 )),
                 // tag: {}
@@ -252,7 +252,7 @@ fn pattern_let() {
         vec![
             (
                 span(4..5, Pattern::Identifier { 
-                    id: span(4..5, "x".into()), 
+                    id: span(4..5, "x".into()),
                     info: span(6..5, IdentifierInfo::empty()) 
                 }).into(),
                 span(8..10, Expression::Temp)
@@ -260,4 +260,50 @@ fn pattern_let() {
         ],
         HashMap::from([])
     );
+}
+
+#[test]
+fn paths() {
+    use path::*;
+
+    test_parser(include_str!("paths.sf"),
+        parse!(Path)
+            .separated_by(just(OP_SEMI)).allow_trailing()
+            .then_ignore(end()), 
+        vec![
+            // this.a.b;
+            span(0..8, Path::new(
+                span(0..4, PathRoot::This), 
+                vec![
+                    span(5..6, "a".into()),
+                    span(7..8, "b".into())
+                ]
+            )),
+            // self:super.super.foo;
+            span(13..33, Path::new(
+                span(13..17, PathRoot::Selff), 
+                vec![
+                    span(18..23, PathPart::Super),
+                    span(24..29, PathPart::Super),
+                    span(30..33, "foo".into()),
+                ]
+            )),
+            // basket.b;
+            span(38..46, Path::new(
+                span(38..44, PathRoot::Basket),
+                vec![
+                    span(45..46, "b".into()),
+                ]
+            )),
+            // thate:raycast.raycaster;
+            span(51..74, Path::new(
+                span(51..56, PathRoot::Part("thate".into())),
+                vec![
+                    span(57..64, "raycast".into()),
+                    span(65..74, "raycaster".into()),
+                ]
+            ))
+        ],
+        HashMap::from([])
+    )
 }
