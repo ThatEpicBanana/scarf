@@ -54,3 +54,55 @@ impl GenericArguments {
                     .recover_with(nested_delimiters(OP_LANGLE, OP_RANGLE, [], err_span))
     }
 }
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GenericParameter {
+    id: S<Ident>,
+    types: Vec<S<Type>>
+}
+
+#[derive_parsable]
+impl GenericParameter {
+    pub fn new(id: S<Ident>, types: Vec<S<Type>>) -> GenericParameter {
+        GenericParameter { id, types }
+    }
+
+    pub fn parser() -> impl Parser<Token, S<GenericParameter>, Error = Simple<Token>> {
+        parse!(Ident)
+        .then(
+            just(OP_COLON)
+                .ignore_then(parse!(Type))
+                .separated_by(just(OP_PLUS))
+            .or(empty().to(vec![]))
+        ).map(|(id, typ)| Self::new(id, typ))
+        .map_with_span(map_span)
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GenericParameters(Vec<S<GenericParameter>>);
+
+#[derive_parsable]
+impl GenericParameters {
+    /// Creates a new [`GenericParameters`] from a list of spanned [`GenericParameter`]s
+    pub fn new(args: Vec<S<GenericParameter>>) -> GenericParameters {
+        GenericParameters(args)
+    }
+
+    //ADDDOC
+    pub fn parser() -> impl Parser<Token, S<Opt<GenericParameters>>, Error = Simple<Token>> {
+        // arg
+        parse!(GenericParameter)
+        // arg, arg,
+        .separated_by(just(OP_COMM))
+            .allow_trailing()
+        // <arg, arg,>
+        .delimited_by(just(OP_LANGLE), just(OP_RANGLE))
+                // map
+                .map(GenericParameters::new)
+                .map_with_span(map_ok_span)
+                    .recover_with(nested_delimiters(OP_LANGLE, OP_RANGLE, [], err_span))
+    }
+}
