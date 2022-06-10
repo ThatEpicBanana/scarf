@@ -419,3 +419,185 @@ fn typ_tok(tok: Token) -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
 fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
     typ_tok(OP_COLON)
 }
+
+
+
+#[test]
+fn patterns() {
+    use crate::tests::prelude::*;
+    use chumsky::error::SimpleReason;
+    use pattern::{*, Pattern::*};
+    use span as s;
+
+    // TODO: Seperate this into seperate functions
+    test_parser(indoc! {r#"
+        // real world
+        {
+            id,
+            Slot: @ 1,
+            tag: {
+                Enchantments: [
+                    {
+                        id: ench_id,
+                        lvl as int
+                    }: _,
+                    ...
+                ]
+            }
+        };
+
+        // error in compound check
+        {
+            test: {
+                test: {
+                    *
+                }
+            }
+        };
+
+        // enum-ident error check
+        enumm.path(*);
+
+        // semi-full check
+        this.name<generics>(
+            _name: type @ 1,
+            [
+                _ @ 1,
+                {
+                    foo @ 1,
+                    key as type,
+                    ...rest: _,
+                }
+            ],
+        );
+        "#},
+        parse!(SinglePattern)
+            // // useful for debugging, but breaks parser and adds an error at the end
+            // .map_with_span(ok_span)
+            // .recover_with(skip_until([OP_SEMI], err_span))
+            .separated_by(just(OP_SEMI)).allow_trailing()
+            .then_ignore(end()),
+        vec![
+            // real world
+            s(14..195, DataPattern::compound(vec![
+                // id
+                s(20..22, CompoundPatternField::simple(
+                    s(20..22, Ident::from("id")),
+                    s(22..22, IdentifierInfo::empty())
+                )),
+                // Slot: @ -1
+                s(28..37, CompoundPatternField::pattern(
+                    s(28..32, Ident::from("Slot")),
+                    s(34..37, Bound(s(36..37, Expression::Temp)))
+                )),
+                // tag: {}
+                s(43..193, CompoundPatternField::pattern(
+                    s(43..46, Ident::from("tag")),
+                    s(48..193, DataPattern::compound(vec![
+                        // Enchantments: []
+                        s(58..187, CompoundPatternField::pattern(
+                            s(58..70, Ident::from("Enchantments")),
+                            s(72..187, DataPattern::list(vec![
+                                // {}: _
+                                s(86..160, Pattern::Data{
+                                    // {}
+                                    pat: s(86..157, DataPattern::compound(vec![
+                                        // id: ench_id
+                                        s(104..115, CompoundPatternField::pattern(
+                                            s(104..106, Ident::from("id")),
+                                            // ench_id
+                                            s(108..115, Pattern::id(
+                                                s(108..115, Ident::from("ench_id")),
+                                                s(115..115, IdentifierInfo::empty())
+                                            ))
+                                        )),
+                                        // lvl as int
+                                        span(133..143, CompoundPatternField::simple(
+                                            span(133..136, Ident::from("lvl")),
+                                            span(137..143, IdentifierInfo::new(Some(s(140..143, Type::Temp)), None, None))
+                                        )),
+                                    ])),
+                                    // : _
+                                    typ: Some(s(159..160, Type::Temp)),
+                                }).into(),
+                                // ...
+                                s(174..177, Pattern::Rest { typ: None, id: None }).into()
+                            ]))
+                        ))
+                    ]))
+                ))
+            ])).into(),
+            // error in compound check
+            s(225..286, DataPattern::compound(vec![
+                s(231..284, CompoundPatternField::pattern(
+                    s(231..235, Ident::from("test")),
+                    s(237..284, DataPattern::compound(vec![
+                        s(247..278, CompoundPatternField::pattern(
+                            s(247..251, Ident::from("test")),
+                            s(253..278, DataPattern::Compound(Err))
+                        )),
+                    ]))
+                )),
+            ])).into(),
+            // enum-ident error check
+            s(315..328, Pattern::Enum {
+                path: s(315..325, GenericPath::new(Path::parse_offset(315, "enumm.path"), None)),
+                pat: s(325..328, DataPattern::Tuple(Err)),
+                typ: None,
+            }).into(),
+            // semi-full check
+            s(350..511, Pattern::Enum {
+                // this.name<generics>()
+                path: s(350..369, GenericPath::new(
+                    Path::parse_offset(350, "this.name"),
+                    Some(GenericArguments::parse_offset(359, "<generics>"))
+                )),
+                pat: s(369..511, DataPattern::tuple(vec![
+                    // _name: type @ -3
+                    s(375..390, Pattern::id(
+                        s(375..380, Ident::from("_name")),
+                        s(380..390, IdentifierInfo::new(
+                            Some(s(382..386, Type::Temp)),
+                            Some(s(389..390, Expression::Temp)),
+                            None
+                        ))
+                    )).into(),
+                    // []
+                    s(396..508, DataPattern::list(vec![
+                        // _ @ -3
+                        s(433..438, Pattern::id(
+                            s(433..434, Ident::from("_")),
+                            s(435..438, IdentifierInfo::new(
+                                None, Some(s(437..438, Expression::Temp)), None
+                            ))
+                        )).into(),
+                        // {}
+                        s(449..534, DataPattern::compound(vec![
+                            // foo @ -3
+                            span(464..471, CompoundPatternField::simple( 
+                                span(464..467, Ident::from("foo")), 
+                                span(468..471, IdentifierInfo::new(None, Some(s(470..471, Expression::Temp)), None))
+                            )),
+                            // key as type
+                            span(486..497, CompoundPatternField::simple(
+                                span(486..489, Ident::from("key")),
+                                span(490..497, IdentifierInfo::new(Some(s(493..497, Type::Temp)), None, None))
+                            )),
+                            // ...rest: _
+                            span(512..522, CompoundPatternField::Rest { 
+                                id: Some(s(515..519, Ident::from("rest"))), 
+                                typ: Some(s(521..522, Type::Temp))
+                            })
+                        ])).into(),
+                    ])).into()
+                ])),
+                typ: None,
+            }).into(),
+        ], 
+        HashMap::from([
+            (267..268, (SimpleReason::Unexpected, Some(OP_STAR))),
+            (326..327, (SimpleReason::Unexpected, Some(OP_STAR))),
+            (396..508, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
+        ])
+    );
+}

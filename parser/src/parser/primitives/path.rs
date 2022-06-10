@@ -128,3 +128,60 @@ impl GenericPath {
     }
 }
 
+
+
+
+#[test]
+fn paths() {
+    use crate::tests::prelude::*;
+    use path::*;
+
+    test_parser(indoc! {r#"
+            this.a.b;
+
+            self:super.super.foo;
+
+            basket.b;
+
+            thate:raycast.raycaster;
+        "#},
+        parse!(Path)
+            .separated_by(just(OP_SEMI)).allow_trailing()
+            .then_ignore(end()), 
+        vec![
+            // this.a.b;
+            span(0..8, Path::new(
+                span(0..4, PathRoot::This), 
+                vec![
+                    span(5..6, "a".into()),
+                    span(7..8, "b".into())
+                ]
+            )),
+            // self:super.super.foo;
+            span(11..31, Path::new(
+                span(11..15, PathRoot::Selff),
+                vec![
+                    span(16..21, PathPart::Super),
+                    span(22..27, PathPart::Super),
+                    span(28..31, "foo".into()),
+                ]
+            )),
+            // basket.b;
+            span(34..42, Path::new(
+                span(34..40, PathRoot::Basket),
+                vec![
+                    span(41..42, "b".into()),
+                ]
+            )),
+            // thate:raycast.raycaster;
+            span(45..68, Path::new(
+                span(45..50, PathRoot::Part("thate".into())),
+                vec![
+                    span(51..58, "raycast".into()),
+                    span(59..68, "raycaster".into()),
+                ]
+            ))
+        ],
+        HashMap::from([])
+    )
+}
