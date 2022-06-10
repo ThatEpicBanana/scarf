@@ -20,6 +20,12 @@ pub fn test_parser<T>(
     expected: T, 
     expected_errors: HashMap<Span, (SimpleReason<Token, Span>, Option<Token>)>
 ) where T: PartialEq + Eq + Debug + Clone {
+    if let Some(_) = input.find('\r') {
+        println!("yep r")
+    } else {
+        println!("no r")
+    }
+
     #[cfg(unix)]
     let input = input.replace("\n", "\r\n");
 

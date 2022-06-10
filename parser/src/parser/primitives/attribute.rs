@@ -99,3 +99,57 @@ pub fn inner_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
         ))
     ).or(doc_comment(true).map(|attr| attr.into()))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parser::prelude::*;
+    use std::collections::HashMap;
+    use crate::tests::test_parser;
+    use indoc::indoc;
+
+    #[test]
+    fn inner_attributes() {
+        use attribute::Attribute;
+
+        test_parser(indoc! {r#"
+                #![doc = "doc comment"]
+
+                //! also doc comment
+
+                #![thate:raycast.idk(pog, class)]
+
+                //! doc comment
+                //! with lines
+            "#},
+            attribute::inner_attribute().repeated().then_ignore(end()), 
+            vec![
+                // -- #![doc = "doc comment"]
+                map_ok_span(Attribute::new_inner(
+                    Path::parse_offset(3, "doc"),
+                    map_span(vec![(string("doc comment"), 9..22)], 7..22)
+                ), 2..23),
+                // -- //! also doc comment
+                map_ok_span(Attribute::inner_doc(
+                    map_span(vec![(doc_in(" also doc comment"), 25..46)], 25..46)
+                ), 25..46),
+                // -- #![thate:raycast.idk(pog, class)]
+                map_ok_span(Attribute::new_inner(
+                    Path::parse_offset(50, "thate:raycast.idk"),
+                    map_span(vec![
+                        (OP_LPARA, 67..68),
+                            (id("pog"), 68..71),
+                            (OP_COMM, 71..72),
+                            (KW_CLASS, 73..78),
+                        (OP_RPARA, 78..79),
+                    ], 67..79),
+                ), 49..80),
+                // -- //! doc comment
+                // -- //! with lines
+                map_ok_span(Attribute::inner_doc(
+                    map_span(vec![(doc_in(" doc comment\n with lines"), 82..113)], 82..113)
+                ), 82..113),
+            ],
+            HashMap::new()
+        );
+    }
+}
