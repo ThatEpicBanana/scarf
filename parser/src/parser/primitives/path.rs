@@ -36,7 +36,7 @@ impl Path {
     }
 
     /// Parses into a [`Path`]
-    /// 
+    ///
     /// **Examples:**
     /// ```ignore
     /// this.x
@@ -130,8 +130,8 @@ impl GenericPath {
 
 
 
-
 #[test]
+#[cfg(test)]
 fn paths() {
     use crate::tests::prelude::*;
     use path::*;

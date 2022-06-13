@@ -423,6 +423,7 @@ fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
 
 
 #[test]
+#[cfg(test)]
 fn patterns() {
     use crate::tests::prelude::*;
     use chumsky::error::SimpleReason;
@@ -565,28 +566,28 @@ fn patterns() {
                     // []
                     s(396..508, DataPattern::list(vec![
                         // _ @ -3
-                        s(433..438, Pattern::id(
-                            s(433..434, Ident::from("_")),
-                            s(435..438, IdentifierInfo::new(
-                                None, Some(s(437..438, Expression::Temp)), None
+                        s(406..411, Pattern::id(
+                            s(406..407, Ident::from("_")),
+                            s(408..411, IdentifierInfo::new(
+                                None, Some(s(410..411, Expression::Temp)), None
                             ))
                         )).into(),
                         // {}
-                        s(449..534, DataPattern::compound(vec![
+                        s(421..502, DataPattern::compound(vec![
                             // foo @ -3
-                            span(464..471, CompoundPatternField::simple( 
-                                span(464..467, Ident::from("foo")), 
-                                span(468..471, IdentifierInfo::new(None, Some(s(470..471, Expression::Temp)), None))
+                            span(435..442, CompoundPatternField::simple(
+                                span(435..438, Ident::from("foo")),
+                                span(439..442, IdentifierInfo::new(None, Some(s(441..442, Expression::Temp)), None))
                             )),
                             // key as type
-                            span(486..497, CompoundPatternField::simple(
-                                span(486..489, Ident::from("key")),
-                                span(490..497, IdentifierInfo::new(Some(s(493..497, Type::Temp)), None, None))
+                            span(456..467, CompoundPatternField::simple(
+                                span(456..459, Ident::from("key")),
+                                span(460..467, IdentifierInfo::new(Some(s(463..467, Type::Temp)), None, None))
                             )),
                             // ...rest: _
-                            span(512..522, CompoundPatternField::Rest { 
-                                id: Some(s(515..519, Ident::from("rest"))), 
-                                typ: Some(s(521..522, Type::Temp))
+                            span(481..491, CompoundPatternField::Rest {
+                                id: Some(s(484..488, Ident::from("rest"))),
+                                typ: Some(s(490..491, Type::Temp))
                             })
                         ])).into(),
                     ])).into()

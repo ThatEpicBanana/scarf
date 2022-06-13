@@ -71,10 +71,10 @@ impl GenericParameter {
     pub fn parser() -> impl Parser<Token, S<GenericParameter>, Error = Simple<Token>> {
         parse!(Ident)
         .then(
-            just(OP_COLON)
-                .ignore_then(parse!(Type))
-                .separated_by(just(OP_PLUS))
-            .or(empty().to(vec![]))
+            just(OP_COLON).ignore_then(
+                parse!(Type)
+                    .separated_by(just(OP_PLUS))
+            ).or(empty().to(vec![]))
         ).map(|(id, typ)| Self::new(id, typ))
         .map_with_span(map_span)
     }
@@ -104,5 +104,55 @@ impl GenericParameters {
                 .map(GenericParameters::new)
                 .map_with_span(map_ok_span)
                     .recover_with(nested_delimiters(OP_LANGLE, OP_RANGLE, [], err_span))
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::prelude::*;
+
+    #[test]
+    fn generic_arguments() {
+        test_parser(indoc! {r#"
+                <Type, x = Type>
+            "#}, 
+            parse!(GenericArguments),
+            ok_span(0..16, GenericArguments::new(vec![
+                span(1..5, GenericArgument::new(
+                    Type::parse_offset(1, "Type"),
+                    None
+                )),
+                span(7..15, GenericArgument::new(
+                    Type::parse_offset(11, "Type"),
+                    Some(span(7..8, "x".into()))
+                ))
+            ])), 
+            HashMap::new()
+        )
+    }
+
+    #[test]
+    fn generic_parameters() {
+        test_parser(indoc! {r#"
+                <T, T: Raycaster + Stuff>
+            "#}, 
+            parse!(GenericParameters),
+            ok_span(0..25, GenericParameters::new(vec![
+                span(1..2, GenericParameter::new(
+                    span(1..2, "T".into()),
+                    vec![]
+                )),
+                span(4..24, GenericParameter::new(
+                    span(4..5, "T".into()),
+                    vec![
+                        Type::parse_offset(7, "Raycaster"),
+                        Type::parse_offset(19, "Stuff")
+                    ]
+                )),
+            ])),
+            HashMap::new()
+        )
     }
 }
