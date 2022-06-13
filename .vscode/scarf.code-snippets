@@ -16,16 +16,24 @@
 	// 	"description": "Log output to console"
 	// }
 	"Parser - Arrow": {
-		"prefix": ["-> impl Parser"],
+		"prefix": ["parserarrow"],
 		"body": [" -> impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>>"]
 	},
 	"Parser": {
-		"prefix": ["impl Parser"],
+		"prefix": ["parserimpl"],
 		"body": ["impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>>"]
 	},
 	"Add Documentation Notice": {
 		"prefix": "//ADDDOC",
 		"body": "//ADDDOC",
+	},
+	"Parser - Function": {
+		"prefix": ["parserfn"],
+		"body": [
+			"pub fn parser() -> impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>> {",
+			"    ${0:parser}",
+			"}"
+		]
 	},
 	// "Imply Parsable": {
 	// 	"prefix": "#[imply] impl Parsable<",
