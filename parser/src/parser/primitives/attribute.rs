@@ -43,7 +43,7 @@ impl Attribute {
 fn doc_comment(inn: bool) -> impl Parser<Token, S<Attribute>, Error = Simple<Token>> {
     filter(move |tok: &Token| 
         matches!(tok, 
-            DOC_COMMENT { com: _, inner } 
+            DOC_COMMENT { com: _, inner }
                 if inner == &inn.clone()
         )
     ).map_with_span(move |tok, spn: Span| map_span(
@@ -75,7 +75,7 @@ pub fn outer_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
     .ignore_then(
         just(OP_LSQUARE)
         .ignore_then(attribute_inner())
-        .map_with_span(|(path, token_stream), spn| 
+        .map_with_span(|(path, token_stream), spn|
             map_span(Ok(Attribute::new_outer(path, token_stream)), spn)
         ).recover_with(nested_delimiters(
             OP_LSQUARE, OP_RSQUARE, 
