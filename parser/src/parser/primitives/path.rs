@@ -44,7 +44,7 @@ impl Path {
     pub fn parser() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
         path_root().then(
             // optional : after the root
-                just(OP_COLON)
+                just(op!(":"))
                     .ignore_then(path_part())
                     .or_not()
             .chain( // then repeated . then part

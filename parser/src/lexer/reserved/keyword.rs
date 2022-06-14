@@ -6,7 +6,7 @@
 
 // macro for constructing the keywords
 macro_rules! kw_macro {
-    { $( $name:ident = $match:expr),* $(,)? } => {
+    { $( $name:ident = $match:tt),* $(,)? } => {
         use std::collections::HashMap;
 
         #[allow(non_camel_case_types)]
@@ -38,6 +38,13 @@ macro_rules! kw_macro {
 
             $( pub const $name: Token = KEYWORD(super::Keyword::$name); )*
         }
+
+        #[macro_export]
+        macro_rules! kw {
+            $(
+                ( $match ) => { $crate::lexer::reserved::keyword::list::$name };
+            )*
+        } pub use kw; // required for stupid reasons
     };
 }
 

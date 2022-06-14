@@ -137,7 +137,7 @@ mod tests {
     fn generic_parameters() {
         test_parser(indoc! {r#"
                 <T, T: Raycaster + Stuff>
-            "#}, 
+            "#},
             parse!(GenericParameters),
             ok_span(0..25, GenericParameters::new(vec![
                 span(1..2, GenericParameter::new(
