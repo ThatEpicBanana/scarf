@@ -8,17 +8,22 @@ macro_rules! op_macro {
     {
         $(
             $group:ident {
-                $($name:ident = $match:expr),* $(,)?
+                $($name:ident = $match:tt),* $(,)?
             }
         )*
     } => {
         #[allow(non_camel_case_types)]
         #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
         pub enum Operator { 
-            #[deprecated = "only (should be) used internally for a macro"]
-            Empty,
             $($($name),*),*
         }
+
+        #[macro_export]
+        macro_rules! op {
+            $($(
+                ( $match ) => { $crate::lexer::reserved::operator::list::$name };
+            )*)*
+        } pub use op; // required for stupid reasons
 
         impl std::fmt::Display for Operator {
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -26,8 +31,6 @@ macro_rules! op_macro {
                     $($(
                         Operator::$name => write!(f, "{}", $match),
                     )*)*
-                    #[allow(deprecated)]
-                    Operator::Empty => write!(f, "OP_EMPTY")
                 }
             }
         }
@@ -39,9 +42,7 @@ macro_rules! op_macro {
             $(
                 pub fn $group() -> impl Parser<char, Operator, Error = Simple<char>> { 
                     choice((
-                        $(
-                            just($match).to($name)
-                        ),*
+                        $(just($match).to($name)),*
                     ))
                 }
             )*
@@ -66,7 +67,7 @@ macro_rules! op_macro {
 
             $(
                 pub fn $group() -> impl Parser<Token, Token, Error = Simple<Token>> { 
-                    filter(|tok| 
+                    filter(|tok|
                         if let OPERATOR{op, ..} = tok {
                             super::lists::$group.contains(op)
                         } else { false }
@@ -79,7 +80,7 @@ macro_rules! op_macro {
             use crate::lexer::prelude::*;
             $($(
                 pub const $name: Token = OPERATOR{
-                    op: super::Operator::$name, 
+                    op: super::Operator::$name,
                     assignment: false
                 };
             )*)*
@@ -87,10 +88,9 @@ macro_rules! op_macro {
 
         use chumsky::prelude::*;
         pub fn any_match() -> impl Parser<char, Operator, Error = Simple<char>> {
-            #[allow(deprecated)]
-            empty().to(Operator::Empty)$(
-                .or(any_match::$group())
-            )*
+            choice(($(
+                any_match::$group(),
+            )*))
         }
     }
 }
@@ -99,7 +99,7 @@ macro_rules! op_macro {
 op_macro!{
     top { 
         // item
-        OP_EQUAL_ARROW = "=>", 
+        OP_EQUAL_ARROW = "=>",
         OP_RETURN = "->",
         OP_HASH = "#", OP_EXCLAMATION = "!",
 
@@ -121,7 +121,7 @@ op_macro!{
         OP_SEMI = ";",
         OP_COMM = ",",
         OP_DOT = ".",
-    } 
+    }
 
     grouping {
         // brackets

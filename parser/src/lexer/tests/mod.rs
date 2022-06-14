@@ -85,9 +85,9 @@ fn add_one() -> Result<(), Vec<Simple<char>>> {
 
         doc_out(" Adds one to the given number"),
 
-        KW_PUB, KW_FUNC, id("add_one"), 
-        OP_LPARA, id("x"), OP_COLON, id("int"), OP_RPARA,
-        OP_EQUAL_ARROW, id("x"), OP_PLUS, integer(1), OP_SEMI,
+        kw!("pub"), kw!("func"), id("add_one"),
+        op!("("), id("x"), op!(":"), id("int"), op!(")"),
+        op!("=>"), id("x"), op!("+"), integer(1), op!(";"),
     ])
 }
 

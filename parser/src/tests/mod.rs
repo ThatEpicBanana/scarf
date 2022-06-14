@@ -34,7 +34,7 @@ pub fn test_parser<T>(
         // if lexer succeeds, try parsing
         parser.parse_recovery_verbose(Stream::from_iter(len..len + 1, out.into_iter()))
     } else {
-        // if lexer fails, output lexer errors
+// if lexer fails, output lexer errors
         panic!("Lexer Errors found: {:#?}\nRecovered Syntax Tree: {:#?}", lexer_errors, out);
     };
 

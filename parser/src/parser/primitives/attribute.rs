@@ -93,7 +93,7 @@ pub fn inner_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
         .map_with_span(|(path, token_stream), spn| 
             map_span(Ok(Attribute::new_inner(path, token_stream)), spn)
         ).recover_with(nested_delimiters(
-            OP_LSQUARE, OP_RSQUARE, 
+            OP_LSQUARE, OP_RSQUARE,
             [(OP_LCURLY, OP_RCURLY), (OP_LPARA, OP_RPARA)],
             err_span
         ))
@@ -102,15 +102,11 @@ pub fn inner_attribute() -> impl Parser<Token, S<Opt<Attribute>>, Error = Simple
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::prelude::*;
-    use std::collections::HashMap;
-    use crate::tests::test_parser;
-    use indoc::indoc;
+    use super::*;
+    use crate::tests::prelude::*;
 
     #[test]
     fn inner_attributes() {
-        use attribute::Attribute;
-
         test_parser(indoc! {r#"
                 #![doc = "doc comment"]
 
