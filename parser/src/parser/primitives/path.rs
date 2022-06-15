@@ -286,7 +286,7 @@ impl IndexedPathName {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::prelude::*;
+    use crate::tests::prelude::{*, prelude::pattern::CompoundPattern};
 
     #[test]
     fn paths() {
@@ -352,7 +352,37 @@ mod tests {
                 span(0..62, IndexedPath(vec![
                     IndexedPathPart::from_name(
                         PathPart::parse_offset(0, "item").into()
-                    )
+                    ),
+                    IndexedPathPart::from_name(
+                        PathPart::parse_offset(5, "tag").into()
+                    ),
+                    span(9..30, IndexedPathPart {
+                        name: PathPart::parse_offset(9, "Inventory").into(),
+                        modifiers: vec![
+                            ok_span(18..30, IndexedPathModifier::CompoundIndex(
+                                CompoundPattern::parse_offset(19, "{Slot @ 1}")
+                            ))
+                        ]
+                    }),
+                    IndexedPathPart::from_name(
+                        PathPart::parse_offset(31, "tag").into()
+                    ),
+                    span(35..54, IndexedPathPart {
+                        name: span(35..46, "has space".to_string()).into(),
+                        modifiers: vec![
+                            ok_span(46..54, IndexedPathModifier::CompoundBound(
+                                CompoundPattern::parse_offset(46, "{id @ 1}")
+                            ))
+                        ]
+                    }),
+                    span(55..62, IndexedPathPart {
+                        name: PathPart::parse_offset(55, "list").into(),
+                        modifiers: vec![
+                            ok_span(59..62, IndexedPathModifier::ExpressionIndex(
+                                Expression::parse_offset(60, "0")
+                            ))
+                        ]
+                    })
                 ]))
             ],
             HashMap::from([])
