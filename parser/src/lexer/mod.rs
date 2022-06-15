@@ -50,6 +50,12 @@ pub enum Token {
     DOC_COMMENT{com: String, inner: bool},
 }
 
+impl From<usize> for Token {
+    fn from(v: usize) -> Self {
+        Self::INTEGER(v)
+    }
+}
+
 impl Token {
     pub fn is_bool        (&self) -> bool { matches!(&self,       &BOOLEAN(_)) }
     pub fn is_string      (&self) -> bool { matches!(&self,        &STRING(_)) }
@@ -60,6 +66,23 @@ impl Token {
     pub fn is_unk_op      (&self) -> bool { matches!(&self,  &UNK_OPERATOR(_)) }
     pub fn is_operator    (&self) -> bool { matches!(&self,     &OPERATOR{..}) }
     pub fn is_doc_comment (&self) -> bool { matches!(&self,  &DOC_COMMENT{..}) }
+
+    pub fn take_string(self) -> String {
+        match self {
+            STRING(x) => x,
+            FLOAT(x) => x,
+            IDENTIFIER(x) => x,
+            UNK_OPERATOR(x) => x,
+            _ => panic!("Tried to take the string of a token that does not represent a string"),
+        }
+    }
+
+    pub fn take_int(self) -> usize {
+        match self {
+            INTEGER(x) => x,
+            _ => panic!("Tried to take the string of a token that does not represent a string"),
+        }
+    }
 }
 
 impl fmt::Display for Token {
@@ -122,7 +145,7 @@ mod util {
 }
 
 
-/// Creates a lexer which outputs a vector of [`Token`]s connected to their `Span`s 
+/// Creates a lexer which outputs a vector of [`Token`]s connected to their `Span`s
 /// 
 /// # Examples:
 /// ```

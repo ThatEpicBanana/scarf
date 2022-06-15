@@ -20,7 +20,7 @@
 		"body": [" -> impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>>"]
 	},
 	"Parser": {
-		"prefix": ["parserimpl"],
+		"prefix": ["parsertype"],
 		"body": ["impl Parser<${1:input}, ${2:output}, Error = Simple<${1:input}>>"]
 	},
 	"Add Documentation Notice": {
@@ -35,6 +35,17 @@
 			"}"
 		]
 	},
+	"Parser - Implementation": {
+		"prefix": ["parserimpl"],
+		"body": [
+			"#[derive_parsable]",
+			"impl ${1:struct} {",
+			"    pub fn parser() -> impl Parser<${2:input}, ${3:output}, Error = Simple<${2:input}>> {"
+			"        ${0:parser}"
+			"    }"
+			"}"
+		]
+	}
 	// "Imply Parsable": {
 	// 	"prefix": "#[imply] impl Parsable<",
 	// 	"body": "#[imply] impl Parsable<${2:output}> for ${1:parent} {}"

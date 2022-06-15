@@ -1,5 +1,4 @@
 pub use crate::{
-
     lexer::prelude::*,
 
     parser::{ *,
@@ -9,8 +8,8 @@ pub use crate::{
         primitives::{
             *,
             ident::Ident,
-            path::{Path, GenericPath},
-            generics::GenericArguments,
+            path::{ Path, GenericArgPath },
+            generics::{ GenericArguments, GenericParameters }
         },
         typ::Type,
         item::{

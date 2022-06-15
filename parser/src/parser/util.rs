@@ -165,8 +165,8 @@ impl<T> Spanned<Opt<T>> {
 
 #[macro_export]
 macro_rules! parse {
-    ($x:ident) => {
-        $x::parser()
+    ($($path_part:ident)::*) => {
+        $($path_part)::*::parser()
     };
 } pub use parse;
 
