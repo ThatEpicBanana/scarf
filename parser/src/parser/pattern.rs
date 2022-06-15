@@ -57,7 +57,7 @@ impl SinglePattern {
         attribute::outer_attribute().repeated().then(
             choice((
                 // enum         -- path.path(data): type
-                parse!(GenericPath)
+                parse!(GenericArgPath)
                 .then(DataPattern::parser(expr.clone(), single_pattern.clone()))
                 .then(typ().or_not())
                         .map(|((path, pat), typ)|
@@ -82,7 +82,7 @@ impl SinglePattern {
                 bound(expr) 
                         .map(Pattern::Bound),
             )).labelled("pattern variant").map_with_span(map_span)
-        ).map_with_span(|(attributes, pattern), spn| 
+        ).map_with_span(|(attributes, pattern), spn|
             Box::new(map_span(SinglePattern { attributes, pattern }, spn))
         ).labelled("pattern").boxed()
     }
@@ -154,7 +154,7 @@ pub enum Pattern {
     Bound      ( S<Expression> ),
     Identifier { id: S<Ident>, info: S<IdentifierInfo> },
 
-    Enum { path: S<GenericPath>, typ: Option<S<Type>>, pat: S<DataPattern>,  },
+    Enum { path: S<GenericArgPath>, typ: Option<S<Type>>, pat: S<DataPattern>,  },
     Data                       { typ: Option<S<Type>>, pat: S<DataPattern>,  },
     Rest                       { typ: Option<S<Type>>, id: Option<S<Ident>>, },
 }
@@ -220,10 +220,31 @@ impl IdentifierInfo {
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CompoundPattern( Opt<Vec<S<CompoundPatternField>>> );
+
+#[derive_parsable]
+impl CompoundPattern {
+    pub fn parser_inner<'a>(expr: ExprParser!('a), single_pattern: SPatParser!('a)) -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> + 'a {
+        // compound {field,}
+        CompoundPatternField::parser(expr, single_pattern)
+            // field, field,
+            .separated_by(just(OP_COMM)).allow_trailing()
+                // { field, }
+                .delimited_by(just(OP_LCURLY), just(OP_RCURLY))
+                .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
+                    .map(CompoundPattern).labelled("compound pattern")
+    }
+
+    pub fn parser() -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> {
+        Self::parser_inner(parse!(Expression), parse!(SinglePattern))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DataPattern {
     List     ( Opt<Vec<Box<S<SinglePattern>>>>   ),
     Tuple    ( Opt<Vec<Box<S<SinglePattern>>>>   ),
-    Compound ( Opt<Vec<S<CompoundPatternField>>> ),
+    Compound ( CompoundPattern ),
 }
 
 impl DataPattern {
@@ -239,7 +260,7 @@ impl DataPattern {
 
     /// Creates a [`DataPattern::Compound`] from a [`Vec`] of [`CompoundPatternField`]s
     pub fn compound(list: Vec<S<CompoundPatternField>>) -> DataPattern {
-        Self::Compound(Ok(list))
+        Self::Compound(CompoundPattern(Ok(list)))
     }
 
 
@@ -263,14 +284,8 @@ impl DataPattern {
                 .map(Ok)
                 .recover_with(nested_delimiters(OP_LSQUARE, OP_RSQUARE, [(OP_LPARA, OP_RPARA), (OP_LCURLY, OP_RCURLY)], |_| Err))
                 .validate(Self::validate_list).labelled("list pattern"),
-            // compound {field,}
-            CompoundPatternField::parser(expr, single_pattern)
-                // field, field,
-                .separated_by(just(OP_COMM)).allow_trailing() 
-                    // { field, }
-                    .delimited_by(just(OP_LCURLY), just(OP_RCURLY))
-                    .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
-                        .map(DataPattern::Compound).labelled("compound pattern"),
+            CompoundPattern::parser_inner(expr, single_pattern)
+                .map(DataPattern::Compound)
         )).map_with_span(map_span).labelled("data pattern")
     }
 
@@ -293,7 +308,7 @@ impl DataPattern {
                     if let Some(typ) = typ {
                         // check if it's the same
                         if current != typ { emit(Simple::custom(span.clone(), 
-                            //TODO: change this to a custom reason
+                            // TODO: change this to a custom reason
                             "Lists must be completely consisted of the same type."
                         )) }
                     // otherwise initialize it
@@ -380,7 +395,7 @@ impl CompoundPatternKey {
     fn parser() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
         parse!(Ident).map(CompoundPatternKey::Ident)
         .or(filter(Token::is_int)
-            .map_with_span(|tok, spn| 
+            .map_with_span(|tok, spn|
                 if let INTEGER(x) = tok { CompoundPatternKey::Index(map_span(x, spn)) }
                 else { unreachable!() } // unreachable due to filter
             )
@@ -535,21 +550,21 @@ fn patterns() {
                     s(237..284, DataPattern::compound(vec![
                         s(247..278, CompoundPatternField::pattern(
                             s(247..251, Ident::from("test")),
-                            s(253..278, DataPattern::Compound(Err))
+                            s(253..278, DataPattern::Compound(CompoundPattern(Err)))
                         )),
                     ]))
                 )),
             ])).into(),
             // enum-ident error check
             s(315..328, Pattern::Enum {
-                path: s(315..325, GenericPath::new(Path::parse_offset(315, "enumm.path"), None)),
+                path: s(315..325, GenericArgPath::new(Path::parse_offset(315, "enumm.path"), None)),
                 pat: s(325..328, DataPattern::Tuple(Err)),
                 typ: None,
             }).into(),
             // semi-full check
             s(350..511, Pattern::Enum {
                 // this.name<generics>()
-                path: s(350..369, GenericPath::new(
+                path: s(350..369, GenericArgPath::new(
                     Path::parse_offset(350, "this.name"),
                     Some(GenericArguments::parse_offset(359, "<generics>"))
                 )),
