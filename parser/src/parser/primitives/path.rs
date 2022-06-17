@@ -1,6 +1,7 @@
 use crate::parser::prelude::*;
 
 // TODO: other types of paths - import, generic parameters, indexed
+// TODO: make it so paths with : are absolute
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {

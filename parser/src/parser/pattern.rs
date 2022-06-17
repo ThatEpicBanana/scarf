@@ -437,63 +437,33 @@ fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
 
 
 
-#[test]
 #[cfg(test)]
-fn patterns() {
+mod tests {
+    use super::*;
     use crate::tests::prelude::*;
     use chumsky::error::SimpleReason;
-    use pattern::{*, Pattern::*};
+    use Pattern::*;
     use span as s;
 
-    // TODO: Seperate this into seperate functions
-    test_parser(indoc! {r#"
-        // real world
-        {
-            id,
-            Slot: @ 1,
-            tag: {
-                Enchantments: [
-                    {
-                        id: ench_id,
-                        lvl as int
-                    }: _,
-                    ...
-                ]
-            }
-        };
-
-        // error in compound check
-        {
-            test: {
-                test: {
-                    *
-                }
-            }
-        };
-
-        // enum-ident error check
-        enumm.path(*);
-
-        // semi-full check
-        this.name<generics>(
-            _name: type @ 1,
-            [
-                _ @ 1,
+    #[test]
+    fn real_world() {
+        test_parser(indoc! {r#"
+                // real world
                 {
-                    foo @ 1,
-                    key as type,
-                    ...rest: _,
+                    id,
+                    Slot: @ 1,
+                    tag: {
+                        Enchantments: [
+                            {
+                                id: ench_id,
+                                lvl as int
+                            }: _,
+                            ...
+                        ]
+                    }
                 }
-            ],
-        );
-        "#},
-        parse!(SinglePattern)
-            // // useful for debugging, but breaks parser and adds an error at the end
-            // .map_with_span(ok_span)
-            // .recover_with(skip_until([OP_SEMI], err_span))
-            .separated_by(just(OP_SEMI)).allow_trailing()
-            .then_ignore(end()),
-        vec![
+            "#}, 
+            parse!(SinglePattern),
             // real world
             s(14..195, DataPattern::compound(vec![
                 // id
@@ -543,77 +513,129 @@ fn patterns() {
                     ]))
                 ))
             ])).into(),
+            HashMap::new()
+        )
+    }
+
+    #[test]
+    fn error_in_compound_check() {
+        test_parser(indoc! {r#"
+                // error in compound check
+                {
+                    test: {
+                        test: {
+                            *
+                        }
+                    }
+                };
+            "#},
+            parse!(SinglePattern),
             // error in compound check
-            s(225..286, DataPattern::compound(vec![
-                s(231..284, CompoundPatternField::pattern(
-                    s(231..235, Ident::from("test")),
-                    s(237..284, DataPattern::compound(vec![
-                        s(247..278, CompoundPatternField::pattern(
-                            s(247..251, Ident::from("test")),
-                            s(253..278, DataPattern::Compound(CompoundPattern(Err)))
+            s(27..88, DataPattern::compound(vec![
+                s(33..86, CompoundPatternField::pattern(
+                    s(33..37, Ident::from("test")),
+                    s(39..86, DataPattern::compound(vec![
+                        s(49..80, CompoundPatternField::pattern(
+                            s(49..53, Ident::from("test")),
+                            s(55..80, DataPattern::Compound(CompoundPattern(Err)))
                         )),
                     ]))
                 )),
             ])).into(),
+            HashMap::from([
+                (69..70, (SimpleReason::Unexpected, Some(OP_STAR))),
+            ])
+        )
+    }
+
+    #[test]
+    fn enum_ident_error_check() {
+        test_parser(indoc! {r#"
+                // enum-ident error check
+                enumm.path(*);
+            "#},
+            parse!(SinglePattern),
             // enum-ident error check
-            s(315..328, Pattern::Enum {
-                path: s(315..325, GenericArgPath::new(Path::parse_offset(315, "enumm.path"), None)),
-                pat: s(325..328, DataPattern::Tuple(Err)),
+            s(26..39, Pattern::Enum {
+                path: s(26..36, GenericArgPath::new(Path::parse_offset(26, "enumm.path"), None)),
+                pat: s(36..39, DataPattern::Tuple(Err)),
                 typ: None,
             }).into(),
+            HashMap::from([
+                (37..38, (SimpleReason::Unexpected, Some(OP_STAR))),
+            ])
+        )
+    }
+
+    #[test]
+    fn semi_full_check() {
+        test_parser(indoc! {r#"
             // semi-full check
-            s(350..511, Pattern::Enum {
+            this.name<generics>(
+                _name: type @ 1,
+                [
+                    _ @ 1,
+                    {
+                        foo @ 1,
+                        key as type,
+                        ...rest: _,
+                    }
+                ],
+            )
+            "#},
+            parse!(SinglePattern),
+            // semi-full check
+            s(19..180, Pattern::Enum {
                 // this.name<generics>()
-                path: s(350..369, GenericArgPath::new(
-                    Path::parse_offset(350, "this.name"),
-                    Some(GenericArguments::parse_offset(359, "<generics>"))
+                path: s(19..38, GenericArgPath::new(
+                    Path::parse_offset(19, "this.name"),
+                    Some(GenericArguments::parse_offset(28, "<generics>"))
                 )),
-                pat: s(369..511, DataPattern::tuple(vec![
+                pat: s(38..180, DataPattern::tuple(vec![
                     // _name: type @ -3
-                    s(375..390, Pattern::id(
-                        s(375..380, Ident::from("_name")),
-                        s(380..390, IdentifierInfo::new(
-                            Some(s(382..386, Type::Temp)),
-                            Some(s(389..390, Expression::Temp)),
+                    s(44..59, Pattern::id(
+                        s(44..49, Ident::from("_name")),
+                        s(49..59, IdentifierInfo::new(
+                            Some(Type::parse_offset(51, "type")),
+                            Some(Expression::parse_offset(58, "1")),
                             None
                         ))
                     )).into(),
                     // []
-                    s(396..508, DataPattern::list(vec![
+                    s(65..177, DataPattern::list(vec![
                         // _ @ -3
-                        s(406..411, Pattern::id(
-                            s(406..407, Ident::from("_")),
-                            s(408..411, IdentifierInfo::new(
-                                None, Some(s(410..411, Expression::Temp)), None
+                        s(75..80, Pattern::id(
+                            s(75..76, Ident::from("_")),
+                            s(77..80, IdentifierInfo::new(
+                                None, Some(Expression::parse_offset(79, "1")), None
                             ))
                         )).into(),
                         // {}
-                        s(421..502, DataPattern::compound(vec![
+                        s(90..171, DataPattern::compound(vec![
                             // foo @ -3
-                            span(435..442, CompoundPatternField::simple(
-                                span(435..438, Ident::from("foo")),
-                                span(439..442, IdentifierInfo::new(None, Some(s(441..442, Expression::Temp)), None))
+                            span(104..111, CompoundPatternField::simple(
+                                span(104..107, Ident::from("foo")),
+                                span(108..111, IdentifierInfo::new(None, Some(Expression::parse_offset(110, "1")), None))
                             )),
                             // key as type
-                            span(456..467, CompoundPatternField::simple(
-                                span(456..459, Ident::from("key")),
-                                span(460..467, IdentifierInfo::new(Some(s(463..467, Type::Temp)), None, None))
+                            span(125..136, CompoundPatternField::simple(
+                                span(125..128, Ident::from("key")),
+                                span(129..136, IdentifierInfo::new(Some(Type::parse_offset(132, "type")), None, None))
                             )),
                             // ...rest: _
-                            span(481..491, CompoundPatternField::Rest {
-                                id: Some(s(484..488, Ident::from("rest"))),
-                                typ: Some(s(490..491, Type::Temp))
+                            span(150..160, CompoundPatternField::Rest {
+                                id: Some(s(153..157, Ident::from("rest"))),
+                                typ: Some(Type::parse_offset(159, "_"))
                             })
                         ])).into(),
                     ])).into()
                 ])),
                 typ: None,
             }).into(),
-        ], 
-        HashMap::from([
-            (267..268, (SimpleReason::Unexpected, Some(OP_STAR))),
-            (326..327, (SimpleReason::Unexpected, Some(OP_STAR))),
-            (396..508, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
-        ])
-    );
+            HashMap::from([
+                (65..177, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
+            ])
+        )
+    }
 }
+
