@@ -12,6 +12,7 @@ pub mod prelude {
     pub use pretty_assertions::assert_eq;
     pub use indoc::indoc;
 
+    pub use chumsky::error::SimpleReason;
     pub use std::collections::HashMap;
 }
 

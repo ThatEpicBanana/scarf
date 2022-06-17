@@ -1,5 +1,7 @@
 use crate::{parser::prelude::*, parse};
 
+use super::prelude::primitives::path::IndexedPath;
+
 // simple alias
 macro_rules! SPatParser {
     ($x:lifetime) => { impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + $x };
@@ -220,27 +222,6 @@ impl IdentifierInfo {
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct CompoundPattern( Opt<Vec<S<CompoundPatternField>>> );
-
-#[derive_parsable]
-impl CompoundPattern {
-    pub fn parser_inner<'a>(expr: ExprParser!('a), single_pattern: SPatParser!('a)) -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> + 'a {
-        // compound {field,}
-        CompoundPatternField::parser(expr, single_pattern)
-            // field, field,
-            .separated_by(just(OP_COMM)).allow_trailing()
-                // { field, }
-                .delimited_by(just(OP_LCURLY), just(OP_RCURLY))
-                .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
-                    .map(CompoundPattern).labelled("compound pattern")
-    }
-
-    pub fn parser() -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> {
-        Self::parser_inner(parse!(Expression), parse!(SinglePattern))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DataPattern {
     List     ( Opt<Vec<Box<S<SinglePattern>>>>   ),
     Tuple    ( Opt<Vec<Box<S<SinglePattern>>>>   ),
@@ -321,6 +302,29 @@ impl DataPattern {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct CompoundPattern( Opt<Vec<S<CompoundPatternField>>> );
+
+#[derive_parsable]
+impl CompoundPattern {
+    pub fn parser_inner<'a>(expr: ExprParser!('a), single_pattern: SPatParser!('a)) -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> + Clone + 'a {
+        recursive(|compound_pattern|
+            // compound {field,}
+            CompoundPatternField::parser(expr, single_pattern, compound_pattern)
+                // field, field,
+                .separated_by(just(OP_COMM)).allow_trailing()
+                    // { field, }
+                    .delimited_by(just(OP_LCURLY), just(OP_RCURLY))
+                    .map(Ok).recover_with(nested_delimiters(OP_LCURLY, OP_RCURLY, [(OP_LPARA, OP_RPARA), (OP_LSQUARE, OP_RSQUARE)], |_| Err))
+                        .map(CompoundPattern).labelled("compound pattern")
+        )
+    }
+
+    pub fn parser() -> impl Parser<Token, CompoundPattern, Error = Simple<Token>> + Clone {
+        Self::parser_inner(parse!(Expression), parse!(SinglePattern))
+    }
+}
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundPatternField {
@@ -352,37 +356,47 @@ impl CompoundPatternField {
 
 
 
-    fn parser<'a>(expr: ExprParser!('a), single_pattern: SPatParser!('a)) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> + 'a {
+    fn parser<'a>(
+        expr: ExprParser!('a), 
+        single_pattern: SPatParser!('a), 
+        compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone + 'a
+    ) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> + 'a {
         // key as type @ bound = default | key: pattern | key | ...
         choice((
+            // ...name
+            rest()
+                    .map(CompoundPatternField::rest_from_tuple),
             // key: pattern
-            parse!(CompoundPatternKey)
+            CompoundPatternKey::parser_inner(compound_pattern.clone())
             .then_ignore(just(OP_COLON))
             .then(single_pattern)
                     .map(|(key, pattern)| CompoundPatternField::Pattern { key, pattern }),
             // key as type @ bound = default
-            parse!(CompoundPatternKey)
+            CompoundPatternKey::parser_inner(compound_pattern)
             .then(IdentifierInfo::parser(expr, KW_AS, true))
                     .map(|(key, info)| CompoundPatternField::Simple { key, info }),
-            // ...name
-            rest()
-                    .map(CompoundPatternField::rest_from_tuple),
         )).map_with_span(map_span).labelled("compound pattern field")
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CompoundPatternKey {
-    Ident(S<Ident>),
+    Path(S<IndexedPath>),
     Index(S<usize>),
 }
 
-// conversion from ident to ident key
-impl From<S<Ident>> for CompoundPatternKey {
-    fn from(id: S<Ident>) -> Self {
-        CompoundPatternKey::Ident(id)
+impl From<S<IndexedPath>> for CompoundPatternKey {
+    fn from(v: S<IndexedPath>) -> Self {
+        Self::Path(v)
     }
 }
+
+// // conversion from ident to ident key
+// impl From<S<Ident>> for CompoundPatternKey {
+//     fn from(id: S<Ident>) -> Self {
+//         CompoundPatternKey::Ident(id)
+//     }
+// }
 
 // conversion from index to index key
 impl From<S<usize>> for CompoundPatternKey {
@@ -392,14 +406,18 @@ impl From<S<usize>> for CompoundPatternKey {
 }
 
 impl CompoundPatternKey {
-    fn parser() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
-        parse!(Ident).map(CompoundPatternKey::Ident)
+    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
+        IndexedPath::parser_inner(compound_pattern).map(CompoundPatternKey::Path)
         .or(filter(Token::is_int)
             .map_with_span(|tok, spn|
                 if let INTEGER(x) = tok { CompoundPatternKey::Index(map_span(x, spn)) }
                 else { unreachable!() } // unreachable due to filter
             )
         ).labelled("compound pattern key")
+    }
+
+    pub fn parser() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
+        Self::parser_inner(parse!(pattern::CompoundPattern))
     }
 }
 
@@ -439,10 +457,8 @@ fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{*, Pattern::*};
     use crate::tests::prelude::*;
-    use chumsky::error::SimpleReason;
-    use Pattern::*;
     use span as s;
 
     #[test]
@@ -462,27 +478,27 @@ mod tests {
                         ]
                     }
                 }
-            "#}, 
+            "#},
             parse!(SinglePattern),
             // real world
             s(14..195, DataPattern::compound(vec![
                 // id
                 s(20..22, CompoundPatternField::simple(
-                    s(20..22, Ident::from("id")),
+                    IndexedPath::parse_offset(20, "id"),
                     s(22..22, IdentifierInfo::empty())
                 )),
                 // Slot: @ -1
                 s(28..37, CompoundPatternField::pattern(
-                    s(28..32, Ident::from("Slot")),
+                    IndexedPath::parse_offset(28, "Slot"),
                     s(34..37, Bound(s(36..37, Expression::Temp)))
                 )),
                 // tag: {}
                 s(43..193, CompoundPatternField::pattern(
-                    s(43..46, Ident::from("tag")),
+                    IndexedPath::parse_offset(43, "tag"),
                     s(48..193, DataPattern::compound(vec![
                         // Enchantments: []
                         s(58..187, CompoundPatternField::pattern(
-                            s(58..70, Ident::from("Enchantments")),
+                            IndexedPath::parse_offset(58, "Enchantments"),
                             s(72..187, DataPattern::list(vec![
                                 // {}: _
                                 s(86..160, Pattern::Data{
@@ -490,7 +506,7 @@ mod tests {
                                     pat: s(86..157, DataPattern::compound(vec![
                                         // id: ench_id
                                         s(104..115, CompoundPatternField::pattern(
-                                            s(104..106, Ident::from("id")),
+                                            IndexedPath::parse_offset(104, "id"),
                                             // ench_id
                                             s(108..115, Pattern::id(
                                                 s(108..115, Ident::from("ench_id")),
@@ -499,7 +515,7 @@ mod tests {
                                         )),
                                         // lvl as int
                                         span(133..143, CompoundPatternField::simple(
-                                            span(133..136, Ident::from("lvl")),
+                                            IndexedPath::parse_offset(133, "lvl"),
                                             span(137..143, IdentifierInfo::new(Some(s(140..143, Type::Temp)), None, None))
                                         )),
                                     ])),
@@ -533,10 +549,10 @@ mod tests {
             // error in compound check
             s(27..88, DataPattern::compound(vec![
                 s(33..86, CompoundPatternField::pattern(
-                    s(33..37, Ident::from("test")),
+                    IndexedPath::parse_offset(33, "test"),
                     s(39..86, DataPattern::compound(vec![
                         s(49..80, CompoundPatternField::pattern(
-                            s(49..53, Ident::from("test")),
+                            IndexedPath::parse_offset(49, "test"),
                             s(55..80, DataPattern::Compound(CompoundPattern(Err)))
                         )),
                     ]))
@@ -570,18 +586,18 @@ mod tests {
     #[test]
     fn semi_full_check() {
         test_parser(indoc! {r#"
-            // semi-full check
-            this.name<generics>(
-                _name: type @ 1,
-                [
-                    _ @ 1,
-                    {
-                        foo @ 1,
-                        key as type,
-                        ...rest: _,
-                    }
-                ],
-            )
+                // semi-full check
+                this.name<generics>(
+                    _name: type @ 1,
+                    [
+                        _ @ 1,
+                        {
+                            foo @ 1,
+                            key as type,
+                            ...rest: _,
+                        }
+                    ],
+                )
             "#},
             parse!(SinglePattern),
             // semi-full check
@@ -614,12 +630,12 @@ mod tests {
                         s(90..171, DataPattern::compound(vec![
                             // foo @ -3
                             span(104..111, CompoundPatternField::simple(
-                                span(104..107, Ident::from("foo")),
+                                IndexedPath::parse_offset(104, "foo"),
                                 span(108..111, IdentifierInfo::new(None, Some(Expression::parse_offset(110, "1")), None))
                             )),
                             // key as type
                             span(125..136, CompoundPatternField::simple(
-                                span(125..128, Ident::from("key")),
+                                IndexedPath::parse_offset(125, "key"),
                                 span(129..136, IdentifierInfo::new(Some(Type::parse_offset(132, "type")), None, None))
                             )),
                             // ...rest: _
@@ -635,6 +651,27 @@ mod tests {
             HashMap::from([
                 (65..177, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
             ])
+        )
+    }
+
+    #[test]
+    fn indexed_paths() {
+        test_parser(indoc! {r#"
+                {
+                    item.tag.Inventory[{Slot @ 1}].tag."has space"{id @ 1}.list[0]: ident
+                }
+            "#},
+            parse!(SinglePattern),
+            s(0..77, DataPattern::compound(vec![
+                s(6..75, CompoundPatternField::pattern(
+                    IndexedPath::parse_offset(6, r#"item.tag.Inventory[{Slot @ 1}].tag."has space"{id @ 1}.list[0]"#),
+                    s(70..75, Pattern::id(
+                        s(70..75, "ident".into()),
+                        s(76..75, IdentifierInfo::empty())
+                    ))
+                ))
+            ])).into(),
+            HashMap::new()
         )
     }
 }
