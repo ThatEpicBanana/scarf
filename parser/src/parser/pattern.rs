@@ -2,6 +2,8 @@ use crate::{parser::prelude::*, parse};
 
 use super::prelude::primitives::path::IndexedPath;
 
+// TODO: make it so bounds use patterns ( and @@ has the old functionality by default )
+
 // simple alias
 macro_rules! SPatParser {
     ($x:lifetime) => { impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + $x };
@@ -68,7 +70,7 @@ impl SinglePattern {
                 // data         -- (data): type
                 DataPattern::parser(expr.clone(), single_pattern)
                 .then(typ().or_not())
-                        .map(|(pat, typ)| 
+                        .map(|(pat, typ)|
                             Pattern::Data { typ, pat }
                         ),
                 // identifier   -- name: type @ bound

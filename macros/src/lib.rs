@@ -5,8 +5,6 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{self, *};
 
-//TODO: token! macro ex: token!(func)
-
 /// Implies `Parsable` and [`From<&str>`] using a given `parser` function.
 /// 
 /// **Note:** The output doesn't have to be the same as the type that will implement `Parsable.`

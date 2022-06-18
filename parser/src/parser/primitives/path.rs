@@ -1,7 +1,6 @@
-use crate::parser::prelude::*;
+use std::fmt::Display;
 
-// TODO: other types of paths - import, generic parameters, indexed
-// TODO: make it so paths with : are absolute
+use crate::parser::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PathRoot {
@@ -20,6 +19,17 @@ impl PathRoot {
             .map_with_span(map_span)
         .or(parse!(PathPart).map(|Spanned(spn, part)| map_span(PathRoot::Part(part), spn.unwrap())))
         .labelled("path root")
+    }
+}
+
+impl Display for PathRoot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            &PathRoot::Part(x) => write!(f, "{}", x),
+            &PathRoot::Selff   => write!(f, "self"),
+            &PathRoot::This    => write!(f, "this"),
+            &PathRoot::Basket  => write!(f, "basket"),
+        }
     }
 }
 
@@ -45,17 +55,27 @@ impl From<&str> for PathPart {
     }
 }
 
+impl Display for PathPart {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            &PathPart::Super => write!(f, "super"),
+            &PathPart::Id(x) => write!(f, "{}", x),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Path {
     pub root: S<PathRoot>,
     pub parts: Vec<S<PathPart>>,
+    pub absolute: bool,
 }
 
 #[derive_parsable]
 impl Path {
     /// Outputs a path of the given root and parts
-    pub fn new(root: S<PathRoot>, parts: Vec<S<PathPart>>) -> Path {
-        Path { root, parts }
+    pub fn new(root: S<PathRoot>, parts: Vec<S<PathPart>>, absolute: bool) -> Path {
+        Path { root, parts, absolute }
     }
 
     /// Parses into a [`Path`]
@@ -65,19 +85,32 @@ impl Path {
     /// this.x
     /// ```
     pub fn parser() -> impl Parser<Token, S<Path>, Error = Simple<Token>> {
+        // parse the root of the path
         parse!(PathRoot).then(
-            // optional : after the root
-                just(op!(":"))
-                    .ignore_then(parse!(PathPart))
-                    .or_not()
-            .chain( // then repeated . then part
-                just(op!("."))
-                    .ignore_then(parse!(PathPart))
-                    .repeated()
-            )
+            // then an optional : to mark as absolute
+            just(op!(":")).to(true)
+            .or(just(op!(".")).to(false))
+                // then the rest of the parts
+                .then(parse!(PathPart)
+                    .separated_by(just(op!(".")))
+                )
+            // or a path with just a root
+            .or(empty().to((false, vec![])))
         ).labelled("path")
-        .map(|(root, parts)| Path{root, parts}) // map to path
-        .map_with_span(map_span)
+            .validate(|(root, ( absolute, parts )), span, emit| {
+                // if it's an absolute path
+                if absolute {
+                    // check if it has an acceptable root
+                    match &root {
+                        &Spanned(_, PathRoot::Basket) => (),
+                        &Spanned(_, PathRoot::Part(PathPart::Id(_))) => (),
+                        // TODO: link to where it defines it as absolute
+                        x => emit(Simple::custom(span, format!("cannot have `{}` as the root of an absolute path", x.unspan_ref().to_string())))
+                    }
+                }
+
+                Path { root, parts, absolute }
+            }).map_with_span(map_span)
     }
 
     /// Turns a vector of parts into a path, with the first part as the root
@@ -91,6 +124,7 @@ impl Path {
         Path {
             root: no_span(PathRoot::Part(parts.next().expect("List given must have at least one element!"))),
             parts: parts.map(no_span).collect(),
+            absolute: false,
         }
     }
 }
@@ -176,6 +210,7 @@ impl IndexedPath {
             .separated_by(just(op!("."))).at_least(1)
             .map(IndexedPath)
             .map_with_span(map_span)
+            .labelled("indexed path")
     }
 
     pub fn parser() -> impl Parser<Token, S<IndexedPath>, Error = Simple<Token>> {
@@ -204,6 +239,7 @@ impl IndexedPathPart {
         .then(IndexedPathModifier::parser_inner(compound_pattern).repeated())
                 .map(|(name, modifiers)| IndexedPathPart { name, modifiers })
                 .map_with_span(map_span)
+                .labelled("indexed path part")
     }
 
     pub fn parser() -> impl Parser<Token, S<IndexedPathPart>, Error = Simple<Token>> {
@@ -249,7 +285,7 @@ impl IndexedPathModifier {
                 // add delimiters
                 .delimited_by(just(op!("[")), just(op!("]")))
                 .map_with_span(map_ok_span).recover_with(nested_delimiters(op!("["), op!("]"), [], err_span)),
-        )
+        ).labelled("indexed path modifier")
     }
 
     pub fn parser() -> impl Parser<Token, S<Opt<IndexedPathModifier>>, Error = Simple<Token>> {
@@ -291,7 +327,7 @@ impl IndexedPathName {
                 .map(Spanned::unspan)
                 .map(IndexedPathName::PathPart)
                 .map_with_span(map_span)
-        )
+        ).labelled("indexed path name")
     }
 }
 
@@ -306,11 +342,13 @@ mod tests {
         test_parser(indoc! {r#"
                 this.a.b;
 
-                self:super.super.foo;
+                self.super.super.foo;
 
                 basket.b;
 
                 thate:raycast.raycaster;
+
+                this;
             "#},
             parse!(Path)
                 .separated_by(just(op!(";"))).allow_trailing()
@@ -322,7 +360,8 @@ mod tests {
                     vec![
                         span(5..6, "a".into()),
                         span(7..8, "b".into())
-                    ]
+                    ],
+                    false
                 )),
                 // self:super.super.foo;
                 span(11..31, Path::new(
@@ -331,14 +370,16 @@ mod tests {
                         span(16..21, PathPart::Super),
                         span(22..27, PathPart::Super),
                         span(28..31, "foo".into()),
-                    ]
+                    ],
+                    false
                 )),
                 // basket.b;
                 span(34..42, Path::new(
                     span(34..40, PathRoot::Basket),
                     vec![
                         span(41..42, "b".into()),
-                    ]
+                    ],
+                    false
                 )),
                 // thate:raycast.raycaster;
                 span(45..68, Path::new(
@@ -346,10 +387,36 @@ mod tests {
                     vec![
                         span(51..58, "raycast".into()),
                         span(59..68, "raycaster".into()),
-                    ]
-                ))
+                    ],
+                    true
+                )),
+                // this;
+                span(71..75, Path::new(
+                    span(71..75, PathRoot::This),
+                    vec![],
+                    false
+                )),
             ],
             HashMap::from([])
+        )
+    }
+
+    #[test]
+    fn absolute_path() {
+        test_parser(indoc! {r#"
+                super:absolute
+            "#},
+            parse!(Path),
+            span(0..14, Path::new(
+                span(0..5, PathRoot::Part(PathPart::Super)),
+                vec![
+                    span(6..14, "absolute".into())
+                ],
+                true
+            )),
+            HashMap::from([
+                (0..14, (SimpleReason::Custom("cannot have `super` as the root of an absolute path".to_string()), None))
+            ])
         )
     }
 
