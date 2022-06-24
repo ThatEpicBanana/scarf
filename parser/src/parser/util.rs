@@ -233,7 +233,8 @@ where
     ///     Path::parse_offset(10, "this.x"), 
     ///     span(10..16, Path::new(
     ///         span(10..14, PathRoot::This), 
-    ///         vec![span(15..16, PathPart::Id(Ident::from("x")))]
+    ///         vec![span(15..16, PathPart::Id(Ident::from("x")))],
+    ///         false
     ///     ))
     /// );
     /// ```

@@ -1,5 +1,5 @@
 // temporary
-//TODO: remove this
+// TODO: remove this
 #![allow(dead_code)]
 
 use chumsky::{prelude::*, Stream, chain::Chain};
@@ -10,6 +10,7 @@ pub mod parser;
 #[cfg(test)] 
 pub mod tests;
 
+// TODO: overhaul errors
 
 use crate::parser::prelude::*;
 

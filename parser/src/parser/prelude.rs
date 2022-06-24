@@ -20,6 +20,9 @@ pub use crate::{
     }
 };
 
-pub use ::macros::derive_parsable;
+pub use ::macros::{
+    derive_parsable,
+    parser_util,
+};
 
 pub use chumsky::prelude::*;

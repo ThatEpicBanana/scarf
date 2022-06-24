@@ -359,7 +359,7 @@ impl CompoundPatternField {
 
 
     fn parser<'a>(
-        expr: ExprParser!('a), 
+        expr: ExprParser!('a),
         single_pattern: SPatParser!('a), 
         compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone + 'a
     ) -> impl Parser<Token, S<CompoundPatternField>, Error = Simple<Token>> + 'a {
@@ -393,13 +393,6 @@ impl From<S<IndexedPath>> for CompoundPatternKey {
     }
 }
 
-// // conversion from ident to ident key
-// impl From<S<Ident>> for CompoundPatternKey {
-//     fn from(id: S<Ident>) -> Self {
-//         CompoundPatternKey::Ident(id)
-//     }
-// }
-
 // conversion from index to index key
 impl From<S<usize>> for CompoundPatternKey {
     fn from(ind: S<usize>) -> Self {
@@ -407,8 +400,12 @@ impl From<S<usize>> for CompoundPatternKey {
     }
 }
 
+#[parser_util(
+    derive_parsable,
+    defaults(parse!(pattern::CompoundPattern)),
+)]
 impl CompoundPatternKey {
-    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
+    pub fn parser_inner(compound_pattern: CompoundPattern) -> CompoundPatternKey {
         IndexedPath::parser_inner(compound_pattern).map(CompoundPatternKey::Path)
         .or(filter(Token::is_int)
             .map_with_span(|tok, spn|
@@ -417,13 +414,7 @@ impl CompoundPatternKey {
             )
         ).labelled("compound pattern key")
     }
-
-    pub fn parser() -> impl Parser<Token, CompoundPatternKey, Error = Simple<Token>> {
-        Self::parser_inner(parse!(pattern::CompoundPattern))
-    }
 }
-
-
 
 
 fn bound(expr: impl Parser<Token, S<Expression>, Error = Simple<Token>>) -> impl Parser<Token, S<Expression>, Error = Simple<Token>> {

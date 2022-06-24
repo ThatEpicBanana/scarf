@@ -41,7 +41,7 @@ pub enum PathPart {
 
 #[derive_parsable]
 impl PathPart {
-    fn parser() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> {
+    fn parser() -> impl Parser<Token, S<PathPart>, Error = Simple<Token>> + Clone {
         just(kw!("super")).to(PathPart::Super)
             .map_with_span(map_span)
         .or(parse!(Ident).map(|Spanned(spn, id)| map_span(PathPart::Id(id), spn.unwrap())))
@@ -205,7 +205,7 @@ pub struct IndexedPath(Vec<S<IndexedPathPart>>);
 
 #[derive_parsable]
 impl IndexedPath {
-    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<IndexedPath>, Error = Simple<Token>> {
+    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<IndexedPath>, Error = Simple<Token>> + Clone {
         IndexedPathPart::parser_inner(compound_pattern)
             .separated_by(just(op!("."))).at_least(1)
             .map(IndexedPath)
@@ -234,7 +234,7 @@ impl IndexedPathPart {
         name.into()
     }
 
-    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<IndexedPathPart>, Error = Simple<Token>> {
+    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<IndexedPathPart>, Error = Simple<Token>> + Clone {
         parse!(IndexedPathName)
         .then(IndexedPathModifier::parser_inner(compound_pattern).repeated())
                 .map(|(name, modifiers)| IndexedPathPart { name, modifiers })
@@ -252,7 +252,7 @@ impl From<S<IndexedPathName>> for S<IndexedPathPart> {
         match name {
             Spanned(spn, name) => Spanned(spn.clone(), IndexedPathPart{
                 name: Spanned(spn, name), 
-                modifiers: vec![] 
+                modifiers: vec![]
             }),
         }
     }
@@ -267,7 +267,7 @@ pub enum IndexedPathModifier {
 
 #[derive_parsable]
 impl IndexedPathModifier {
-    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<Opt<IndexedPathModifier>>, Error = Simple<Token>> {
+    pub fn parser_inner(compound_pattern: impl Parser<Token, pattern::CompoundPattern, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<Opt<IndexedPathModifier>>, Error = Simple<Token>> + Clone {
         // test{pattern}
         compound_pattern.clone()
             .map(IndexedPathModifier::CompoundBound)
@@ -317,7 +317,7 @@ impl From<S<PathPart>> for S<IndexedPathName> {
 
 #[derive_parsable]
 impl IndexedPathName {
-    pub fn parser() -> impl Parser<Token, S<IndexedPathName>, Error = Simple<Token>> {
+    pub fn parser() -> impl Parser<Token, S<IndexedPathName>, Error = Simple<Token>> + Clone {
             filter(Token::is_string)
                 .map(Token::take_string)
                 .map(IndexedPathName::String)

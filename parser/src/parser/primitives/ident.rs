@@ -12,7 +12,7 @@ impl Ident {
         Ident(id)
     }
 
-    pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> {
+    pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> + Clone {
         filter(Token::is_ident)
             .labelled("ident")
             .map(|tok| tok.into())
