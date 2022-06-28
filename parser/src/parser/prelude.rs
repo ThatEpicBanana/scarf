@@ -9,7 +9,8 @@ pub use crate::{
             *,
             ident::Ident,
             path::{ Path, GenericArgPath },
-            generics::{ GenericArguments, GenericParameters }
+            generics::{ GenericArguments, GenericParameters },
+            attribute::Attribute,
         },
         typ::Type,
         item::{

@@ -4,8 +4,8 @@ use std::ops::Deref;
 
 use crate::parser::prelude::*;
 
-//TODO: add files to spans
-/// A type representing a span of input text 
+// TODO: add files to spans
+/// A type representing a span of input text
 pub type Span = std::ops::Range<usize>;
 
 /// A simple (smart pointer) struct that associates a type with a [`Span`]
@@ -165,6 +165,9 @@ impl<T> Spanned<Opt<T>> {
 
 #[macro_export]
 macro_rules! parse {
+    ($($path_part:ident)::* + $($arg:expr),*) => {
+        $($path_part)::*::parser_inner($($arg),*)
+    };
     ($($path_part:ident)::*) => {
         $($path_part)::*::parser()
     };

@@ -145,7 +145,7 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
             /// Converts a string into a [`#typ`]
             ///
             /// ### Panics
-            /// 
+            ///
             /// - If the lexer or parser fails
             fn from(string: &str) -> Self {
                 #typ::parse(string)
@@ -161,7 +161,7 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
 /// # Syntax
 ///
 /// ```ignore
-/// #[parser_util(defaults(...), no_convert, no_derive_parsable)]
+/// #[parser_util(defaults(...), no_convert, derive_parsable)]
 /// ```
 /// &nbsp;
 /// # Features
@@ -173,8 +173,8 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// // Converts to
 ///
-/// pub fn parser(expr: impl Parser<Token, S<Expression>, Error = ParserError>)
-///     -> impl Parser<Token, S<SinglePattern>, Error = ParserError>
+/// pub fn parser(expr: impl Parser<Token, S<Expression>, Error = Simple<Token>>)
+///     -> impl Parser<Token, S<SinglePattern>, Error = Simple<Token>>
 /// ```
 /// &nbsp;
 /// This is on by default, but can be turned off by `no_convert`
@@ -188,6 +188,15 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 /// &nbsp;
 /// You may also add `#[no_convert]` before the entire parser to do the same for the return type
+///
+/// ### Converting other functions
+///
+/// You may add `#[parser]` to other functions to mark them as a parser to convert
+///
+/// ```ignore
+/// #[parser]
+/// fn pattern_list(single_pattern: Box<S<SinglePattern>>) -> Vec<Box<S<SinglePattern>>> {...}
+/// ```
 ///
 /// ## Defaults for parser_inner
 ///
@@ -215,6 +224,7 @@ pub fn derive_parsable(_: TokenStream, item: TokenStream) -> TokenStream {
 /// Disable via `no_derive_parsable`
 ///
 /// See [`derive_parsable`]
+// TODO: #[convert_fn] attribute
 #[proc_macro_attribute]
 pub fn parser_util(args: TokenStream, item: TokenStream) -> TokenStream {
     use punctuated::Punctuated;
@@ -260,6 +270,22 @@ pub fn parser_util(args: TokenStream, item: TokenStream) -> TokenStream {
         .position(|method| impl_method_matches(method, "parser_inner"))
         .map(|index| if let ImplItem::Method(x) = items.swap_remove(index)
             { x } else { unreachable!() });
+
+    // convert other functions if needed
+    let items: Vec<_> = items.into_iter()
+        .map(|item| 
+            if convert { 
+                match item {
+                    // if it's marked
+                    ImplItem::Method(x) => if x.attrs.iter().position(|attr| attr.path.is_ident("parser")).is_some() {
+                        // convert it ( removing the attribute is done in the function )
+                        convert_impl_item_method(x).into()
+                    // otherwise pass through
+                    } else { x.to_token_stream() },
+                    other => other.to_token_stream(),
+                }
+            } else { item.to_token_stream() }
+        ).collect();
 
 
     // get return type before convert converts since it could be quicker
@@ -328,16 +354,24 @@ pub fn parser_util(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if let Some(defaults) = defaults {
+        let typ = convert_type(&return_type.unwrap(), false);
+
         base.extend(quote!{
             #[automatically_derived]
             impl #parent_type {
-                pub fn parser() -> impl Parser<Token, #return_type, Error = Simple<Token>> {
+                pub fn parser() -> #typ {
                     Self::parser_inner(#defaults)
                 }
             }
         })
     }
     base.into()
+}
+
+fn convert_type(typ: &Type, lifetime: bool) -> proc_macro2::TokenStream {
+    let mut converted = quote!{ impl Parser<Token, #typ, Error = Simple<Token>> + Clone };
+    if lifetime { converted.extend(quote!{ + 'a }) }
+    converted
 }
 
 fn convert_impl_item_method(f: ImplItemMethod) -> TokenStream {
@@ -359,26 +393,22 @@ fn convert_impl_item_method(f: ImplItemMethod) -> TokenStream {
             let filtered_attrs: Vec<_> = attrs.iter().filter(|Attribute{ path, .. }| !path.is_ident("no_convert")).collect();
 
             // if there are more than one input, then add generics
-            let ( lifetime, generics ) = if inputs.len() > 1 {
+            let lifetime = inputs.len() > 1;
+            let generics = if lifetime {
                 // only add to the generic param list if there's already parameters
-                let generics = if generics.lt_token.is_some() {
+                if generics.lt_token.is_some() {
                     match generics {
                         Generics { params, where_clause, .. } => 
                             quote! { <#params, 'a> #where_clause },
                     }
-                } else { quote! { <'a> } };
-
-                ( quote! { + 'a }, generics )
-            } else { ( quote! {}, generics.to_token_stream() ) };
-
-            // closure for converting a type to a parser
-            let convert_fn = |typ| quote! { impl Parser<Token, #typ, Error = Simple<Token>> + Clone #lifetime };
+                } else { quote! { <'a> } }
+            } else { generics.to_token_stream() };
 
             // convert the return value if necessary
             let return_type = if filtered_attrs.len() < attrs.len() {
-                quote! { #output }
+                quote! { #output }.into()
             } else {
-                convert_fn(output)
+                convert_type(&output, lifetime)
             };
 
             // convert inputs
@@ -390,12 +420,14 @@ fn convert_impl_item_method(f: ImplItemMethod) -> TokenStream {
                     let ty = if new_attrs.len() < attrs.len() 
                         { ty.to_token_stream() }
                     else
-                        { convert_fn(ty) };
+                        { convert_type(&ty, lifetime) };
 
                     // remake inputs
                     quote! { #(#new_attrs)* #pat: #ty }
                 } else { quote! { #arg } }
             ).collect();
+
+            let filtered_attrs: Vec<_> = attrs.iter().filter(|Attribute{ path, .. }| !path.is_ident("parser")).collect();
 
             quote! {
                 #(#filtered_attrs)*

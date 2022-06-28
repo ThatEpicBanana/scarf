@@ -1,15 +1,15 @@
 use crate::parser::prelude::*;
 
-pub use attribute::inner_attribute;
+pub use attribute::Attribute;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
     Temp,
 }
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl Expression {
-    pub fn parser() -> impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone {
+    pub fn parser() -> S<Expression> {
         any().to(Expression::Temp)
             .labelled("expression")
             .map_with_span(map_span)

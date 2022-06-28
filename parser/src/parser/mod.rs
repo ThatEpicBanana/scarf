@@ -12,7 +12,7 @@ pub mod util;
 use crate::parser::prelude::*;
 
 pub fn create() -> impl Parser<Token, Vec<Item>, Error = Simple<Token>> {
-    item::item()
+    parse!(Item)
         .repeated()
         .then_ignore(end())
 }

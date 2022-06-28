@@ -6,7 +6,7 @@ pub struct GenericArgument {
     id: Option<S<Ident>>,
 }
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl GenericArgument {
     /// Creates a Generic Argument out of a spanned [`Type`] and optional [`Ident`] 
     pub fn new(typ: S<Type>, id: Option<S<Ident>>) -> GenericArgument {
@@ -19,7 +19,7 @@ impl GenericArgument {
     }
 
     //ADDDOC
-    pub fn parser() -> impl Parser<Token, S<GenericArgument>, Error = Simple<Token>> {
+    pub fn parser() -> S<GenericArgument> {
         parse!(Ident)
             .then_ignore(just(OP_EQUAL))
             .or_not()
@@ -32,7 +32,7 @@ impl GenericArgument {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericArguments(Vec<S<GenericArgument>>);
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl GenericArguments {
     /// Creates a new [`GenericArguments`] from a list of spanned [`GenericArgument`]s
     pub fn new(args: Vec<S<GenericArgument>>) -> GenericArguments {
@@ -40,7 +40,7 @@ impl GenericArguments {
     }
 
     //ADDDOC
-    pub fn parser() -> impl Parser<Token, S<Opt<GenericArguments>>, Error = Simple<Token>> {
+    pub fn parser() -> S<Opt<GenericArguments>> {
         // arg
         parse!(GenericArgument)
         // arg, arg,
@@ -62,13 +62,13 @@ pub struct GenericParameter {
     types: Vec<S<Type>>
 }
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl GenericParameter {
     pub fn new(id: S<Ident>, types: Vec<S<Type>>) -> GenericParameter {
         GenericParameter { id, types }
     }
 
-    pub fn parser() -> impl Parser<Token, S<GenericParameter>, Error = Simple<Token>> {
+    pub fn parser() -> S<GenericParameter> {
         parse!(Ident)
         .then(
             just(OP_COLON).ignore_then(
@@ -84,7 +84,7 @@ impl GenericParameter {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericParameters(Vec<S<GenericParameter>>);
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl GenericParameters {
     /// Creates a new [`GenericParameters`] from a list of spanned [`GenericParameter`]s
     pub fn new(args: Vec<S<GenericParameter>>) -> GenericParameters {
@@ -92,7 +92,7 @@ impl GenericParameters {
     }
 
     //ADDDOC
-    pub fn parser() -> impl Parser<Token, S<Opt<GenericParameters>>, Error = Simple<Token>> {
+    pub fn parser() -> S<Opt<GenericParameters>> {
         // arg
         parse!(GenericParameter)
         // arg, arg,

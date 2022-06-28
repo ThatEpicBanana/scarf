@@ -13,9 +13,9 @@ pub enum Visibility {
     PubPath(S<Opt<S<Path>>>),
 }
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl Visibility {
-    pub fn parser() -> impl Parser<Token, S<Visibility>, Error = Simple<Token>> {
+    pub fn parser() -> S<Visibility> {
         just(KW_PRV).to(Visibility::Prv)
         .or(just(KW_PUB).ignore_then(
                 // check if there's a path and rewind for recovery

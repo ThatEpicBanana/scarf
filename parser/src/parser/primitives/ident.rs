@@ -6,13 +6,13 @@ use crate::parser::prelude::*;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Ident(String);
 
-#[derive_parsable]
+#[parser_util(derive_parsable)]
 impl Ident {
     pub fn new(id: String) -> Ident {
         Ident(id)
     }
 
-    pub fn parser() -> impl Parser<Token, S<Ident>, Error = Simple<Token>> + Clone {
+    pub fn parser() -> S<Ident> {
         filter(Token::is_ident)
             .labelled("ident")
             .map(|tok| tok.into())

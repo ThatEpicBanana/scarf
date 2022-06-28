@@ -6,12 +6,12 @@ fn single_spanned_vector(tok: Token, span: Span) -> TokenStream {
     vec![(tok, span)]
 }
 
-fn until_single(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> {
+fn until_single(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
     none_of([OP_LPARA, OP_LCURLY, OP_LSQUARE, until])
         .map_with_span(single_spanned_vector)
 }
 
-fn until_inner(until: Token, any_group: impl Parser<Token, TokenStream, Error = Simple<Token>>) -> impl Parser<Token, TokenStream, Error = Simple<Token>> {
+fn until_inner(until: Token, any_group: impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
     any_group.or(until_single(until.clone()))
         .repeated().flatten()
         .chain(just(until).map_with_span(single_spanned_vector))
@@ -24,7 +24,7 @@ fn until_inner(until: Token, any_group: impl Parser<Token, TokenStream, Error = 
 /// > **Note:** The output [`TokenStream`] is not automatically spanned. 
 /// > 
 /// > If you want to turn it into [`Spanned`], then call [`map_with_span(`](chumsky::Parser::map_with_span) [`span`] [`)`](chumsky::Parser::map_with_span)
-pub fn any_group() -> impl Parser<Token, TokenStream, Error = Simple<Token>> {
+pub fn any_group() -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
     recursive(|group|
         choice((
             just(OP_LPARA).map_with_span(single_spanned_vector)
@@ -40,9 +40,9 @@ pub fn any_group() -> impl Parser<Token, TokenStream, Error = Simple<Token>> {
 /// Parses a [`TokenStream`] until a given [`Token`], while checking for nested delimiters
 /// 
 /// > **Note:** The output [`TokenStream`] is not automatically spanned. 
-/// > 
+/// >
 /// > If you want to turn it into [`Spanned`], then call [`map_with_span(`](chumsky::Parser::map_with_span) [`span`] [`)`](chumsky::Parser::map_with_span)
-pub fn token_stream_until(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> {
+pub fn token_stream_until(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
     any_group().or(until_single(until))
         .repeated().flatten()
 }
