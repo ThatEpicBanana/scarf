@@ -83,36 +83,36 @@ impl Item {
             .then(parse!(Visibility))
             .then(
                 one_of([KW_EXT, KW_STAT, KW_ABST])
+                    .map_with_span(map_span)
                     .repeated()
-                    .validate(|list, span: Span, emit| {
-                        for keyword in [KW_EXT, KW_STAT, KW_ABST] {
-                            if list.clone().into_iter().filter(|tok| *tok == keyword).count() > 1 {
-                                emit(Simple::custom(span.clone(), format!("Cannot declare \"{}\" more than once", keyword.to_string())))
-                            }
-                        }
-                        list
-                    })
             )
             .then(parse!(ItemVariant))
                     .validate(|(((attributes, visibility), list), variant), span, emit| {
-                        for keyword in list.clone() {
-                            if !variant.accepts(&keyword) { 
-                                emit(Simple::custom(span.clone(), format!("Cannot declare {} on item {}", keyword.to_string(), variant.name())))
-                            }
-                        }
-                        // might as well put it into a single tuple on the way out
-                        (attributes, visibility, list, variant)
-                    })
-                    .map(|(attributes, visibility, modifiers, variant)| {
-                        Item {
-                            attributes,
-                            visibility,
-                            variant,
+                        // check each modifier
+                        let modifiers = [kw!("ext"), kw!("stat"), kw!("abst")]
+                            .map(|kw| {
+                                let kw_list: Vec<_> = list.iter().filter(|tok| *tok.unspan_ref() == kw).collect();
 
-                            ext: modifiers.contains(&KW_EXT),
-                            stat: modifiers.contains(&KW_STAT),
-                            abst: modifiers.contains(&KW_ABST),
-                        }
+                                match kw_list.len() {
+                                    0 => false,
+                                    x => {
+                                        // check if there's a dupe
+                                        if x > 1 {
+                                            let dupe_list = kw_list.iter().map(|tok| tok.to_owned().to_owned()).collect();
+                                            emit(ParserError::from_reason(span.clone(), ParserErrorReason::ItemVariantDuplicatedModifier { dupe_list, modifier: kw.clone() }));
+                                        }
+
+                                        // check if the variant accepts the keyword
+                                        if variant.accepts(&kw) { true }
+                                        else {
+                                            emit(ParserError::from_reason(span.clone(), ParserErrorReason::ItemVariantDisallowedModifier { variant: variant.clone(), modifier: kw_list[0].clone() }));
+                                            false
+                                        }
+                                    }
+                                }
+                            });
+
+                        Item { attributes, visibility, variant, ext: modifiers[0], stat: modifiers[1], abst: modifiers[2] }
                     })
         )
     }

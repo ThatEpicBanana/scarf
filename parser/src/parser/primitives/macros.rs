@@ -6,12 +6,14 @@ fn single_spanned_vector(tok: Token, span: Span) -> TokenStream {
     vec![(tok, span)]
 }
 
-fn until_single(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn until_single(#[no_convert] until: Token) -> TokenStream {
     none_of([OP_LPARA, OP_LCURLY, OP_LSQUARE, until])
         .map_with_span(single_spanned_vector)
 }
 
-fn until_inner(until: Token, any_group: impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn until_inner(#[no_convert] until: Token, any_group: TokenStream) -> TokenStream {
     any_group.or(until_single(until.clone()))
         .repeated().flatten()
         .chain(just(until).map_with_span(single_spanned_vector))
@@ -21,10 +23,11 @@ fn until_inner(until: Token, any_group: impl Parser<Token, TokenStream, Error = 
 
 /// Parses a [`TokenStream`] surrounded by any delimiter, while checking for nested delimiters
 /// 
-/// > **Note:** The output [`TokenStream`] is not automatically spanned. 
+/// > **Note:** The output [`TokenStream`] is not automatically spanned.
 /// > 
 /// > If you want to turn it into [`Spanned`], then call [`map_with_span(`](chumsky::Parser::map_with_span) [`span`] [`)`](chumsky::Parser::map_with_span)
-pub fn any_group() -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
+#[parser_fn]
+pub fn any_group() -> TokenStream {
     recursive(|group|
         choice((
             just(OP_LPARA).map_with_span(single_spanned_vector)
@@ -42,7 +45,8 @@ pub fn any_group() -> impl Parser<Token, TokenStream, Error = Simple<Token>> + C
 /// > **Note:** The output [`TokenStream`] is not automatically spanned. 
 /// >
 /// > If you want to turn it into [`Spanned`], then call [`map_with_span(`](chumsky::Parser::map_with_span) [`span`] [`)`](chumsky::Parser::map_with_span)
-pub fn token_stream_until(until: Token) -> impl Parser<Token, TokenStream, Error = Simple<Token>> + Clone {
+#[parser_fn]
+pub fn token_stream_until(#[no_convert] until: Token) -> TokenStream {
     any_group().or(until_single(until))
         .repeated().flatten()
 }

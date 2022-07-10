@@ -62,11 +62,11 @@ macro_rules! op_macro {
         }
 
         pub mod any_token {
-            use chumsky::prelude::*;
-            use crate::lexer::prelude::*;
+            use crate::parser::prelude::*;
 
             $(
-                pub fn $group() -> impl Parser<Token, Token, Error = Simple<Token>> { 
+                #[parser_fn]
+                pub fn $group() -> Token {
                     filter(|tok|
                         if let OPERATOR{op, ..} = tok {
                             super::lists::$group.contains(op)
@@ -106,8 +106,11 @@ op_macro!{
         // comparison
         OP_EQUAL = "=",
         OP_DOUBLE_EQUAL = "==", OP_FUZZY_EQUAL = "~=", OP_NOT_EQUAL = "!=", OP_FUZZY_NOT_EQUAL = "!~=",
-        // OP_LESS = "<", OP_MORE = ">", 
+        // OP_LESS = "<", OP_MORE = ">",
         OP_LESS_EQUAL = "<=", OP_MORE_EQUAL = ">=",
+
+        // pattern
+        // OP_DOUBLE_AT = "@@",
     } 
 
     bottom {

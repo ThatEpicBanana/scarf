@@ -4,7 +4,6 @@ use std::ops::Deref;
 
 use crate::parser::prelude::*;
 
-// TODO: add files to spans
 /// A type representing a span of input text
 pub type Span = std::ops::Range<usize>;
 
@@ -186,8 +185,8 @@ fn offset_string(offset: usize, string: &str) -> String {
 /// Parses a `string` with a given `parser`, passing it through the lexer first.
 /// 
 /// `name`: The name to call the output in error messages
-fn lex_to_parse<O>(string: &str, parser: impl Parser<Token, O, Error = Simple<Token>>, name: &str) -> O
-where 
+fn lex_to_parse<O>(string: &str, parser: parser!(O), name: &str) -> O
+where
     O: Clone + Debug + PartialEq + Eq + std::hash::Hash 
 {
     let len = string.len();

@@ -6,18 +6,17 @@ use chumsky::{prelude::*, Stream, chain::Chain};
 
 pub mod lexer;
 pub mod parser;
+pub mod error;
 
 #[cfg(test)] 
 pub mod tests;
-
-// TODO: overhaul errors
 
 use crate::parser::prelude::*;
 
 pub struct ParserOutput {
     pub out: Option<Vec<Item>>,
     pub lexer_errors: Vec<Simple<char>>,
-    pub parser_errors: Vec<Simple<Token>>,
+    pub parser_errors: Vec<ParserError>,
 }
 
 fn parse<'a, Iter, S>(input: S) -> ParserOutput 

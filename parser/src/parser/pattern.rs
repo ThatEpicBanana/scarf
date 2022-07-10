@@ -2,23 +2,29 @@ use crate::{parser::prelude::*, parse};
 
 use super::prelude::primitives::path::IndexedPath;
 
-// TODO: make it so bounds use patterns ( and @@ has the old functionality by default )
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct MultiPattern {
     pub patterns: Vec<Box<S<SinglePattern>>>,
 }
 
-#[parser_util(derive_parsable)]
+#[parser_util(derive_parsable,
+    defaults(parse!(SinglePattern))
+)]
 impl MultiPattern {
     pub fn new(patterns: Vec<Box<S<SinglePattern>>>) -> MultiPattern {
         MultiPattern { patterns }
     }
 
-    pub fn parser() -> MultiPattern {
-        parse!(SinglePattern)
+    pub fn single(pattern: Box<S<SinglePattern>>) -> MultiPattern {
+        Self::new(vec![pattern])
+    }
+
+    pub fn parser_inner(single_pattern: Box<S<SinglePattern>>) -> S<MultiPattern> {
+        single_pattern
             .separated_by(just(OP_BAR))
-            .map(MultiPattern::new).labelled("multi pattern")
+            .map(MultiPattern::new)
+                .map_with_span(map_span)
+                .labelled("multi pattern")
     }
 }
 
@@ -54,7 +60,7 @@ impl SinglePattern {
                             Pattern::Enum { typ, pat, path }
                         ),
                 // data         -- (data): type
-                parse!(DataPattern + expr.clone(), single_pattern)
+                parse!(DataPattern + expr.clone(), single_pattern.clone())
                 .then(typ().or_not())
                         .map(|(pat, typ)|
                             Pattern::Data { typ, pat }
@@ -63,13 +69,13 @@ impl SinglePattern {
                     // name
                 parse!(Ident)
                     .then_ignore(none_of([OP_DOT, OP_LPARA, OP_LCURLY, OP_LSQUARE]).rewind())
-                .then(parse!(IdentifierInfo + expr.clone(), OP_COLON, default_allowed))
+                .then(parse!(IdentifierInfo + expr.clone(), single_pattern, OP_COLON, default_allowed))
                         .map(|(id, info)| Pattern::Identifier { id, info }),
                 // rest pattern -- ...name
                 rest()
                         .map(Pattern::rest_from_tuple),
                 // bound        -- @ bound
-                bound(expr)
+                expression_bound(expr)
                         .map(Pattern::Bound),
             )).labelled("pattern variant").map_with_span(map_span)
         ).map_with_span(|(attributes, pattern), spn|
@@ -80,9 +86,8 @@ impl SinglePattern {
 
 
     /// Parses a [`SinglePattern`] with a given `expression_parser` and no defaults allowed in the root (used for let statements)
-    pub fn parser_no_default<'a>(
-        expression_parser: impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone + 'a
-    ) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'a {
+    #[parser_fn(always_lifetime)]
+    pub fn parser_no_default(expression_parser: S<Expression>) -> Box<S<SinglePattern>> {
         Self::parser_inner(
             expression_parser.clone(),
             Self::parser_with_expr(expression_parser),
@@ -91,9 +96,8 @@ impl SinglePattern {
     }
 
     /// Parses a [`SinglePattern`] with a given `expression_parser` to allow for recursion
-    pub fn parser_with_expr<'a>(
-        expression_parser: impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone + 'a
-    ) -> impl Parser<Token, Box<S<SinglePattern>>, Error = Simple<Token>> + Clone + 'a {
+    #[parser_fn(always_lifetime)]
+    pub fn parser_with_expr(expression_parser: S<Expression>) -> Box<S<SinglePattern>> {
         recursive(|single_pattern|
             Self::parser_inner(
                 expression_parser, 
@@ -167,13 +171,13 @@ impl Pattern {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IdentifierInfo {
     pub typ:     Option<S<Type>>,
-    pub bound:   Option<S<Expression>>,
+    pub bound:   Option<S<MultiPattern>>,
     pub default: Option<S<Expression>>,
 }
 
 #[parser_util]
 impl IdentifierInfo {
-    pub fn new(typ: Option<S<Type>>, bound: Option<S<Expression>>, default: Option<S<Expression>>) -> IdentifierInfo {
+    pub fn new(typ: Option<S<Type>>, bound: Option<S<MultiPattern>>, default: Option<S<Expression>>) -> IdentifierInfo {
         IdentifierInfo { typ, bound, default }
     }
 
@@ -182,7 +186,7 @@ impl IdentifierInfo {
     }
 
     #[inline]
-    fn from_tuple(((typ, bound), default): ((Option<S<Type>>, Option<S<Expression>>), Option<S<Expression>>)) -> IdentifierInfo {
+    fn from_tuple(((typ, bound), default): ((Option<S<Type>>, Option<S<MultiPattern>>), Option<S<Expression>>)) -> IdentifierInfo {
         IdentifierInfo::new(typ, bound, default)
     }
 
@@ -196,13 +200,14 @@ impl IdentifierInfo {
 
     pub fn parser_inner(
         expr: S<Expression>,
+        s_pat: Box<S<SinglePattern>>,
         #[no_convert] type_token: Token,
         #[no_convert] default_allowed: bool
     ) -> S<IdentifierInfo> {
         // : type
         typ_tok(type_token).or_not()
         // @ bound
-        .then(bound(expr.clone()).or_not())
+        .then(pattern_bound(s_pat).or_not())
         // = default
         .then(if default_allowed { default(expr).or_not().boxed() } else { empty().to(None).boxed() })
                 .map(IdentifierInfo::from_tuple)
@@ -267,7 +272,7 @@ impl DataPattern {
     }
 
 
-    fn validate_list(list: Opt<Vec<Box<Spanned<SinglePattern>>>>, span: Span, emit: &mut dyn FnMut(Simple<Token>)) -> DataPattern {
+    fn validate_list(list: Opt<Vec<Box<Spanned<SinglePattern>>>>, span: Span, emit: &mut dyn FnMut(ParserError)) -> DataPattern {
         if list.is_ok() && list.len() > 1 {
             // initialize type
             let mut typ = None;
@@ -280,14 +285,11 @@ impl DataPattern {
                 if !matches!(pattern, Pattern::Rest{..}) {
                     // get the discriminant
                     let current = std::mem::discriminant(&pattern);
-    
+
                     // if the type exists
                     if let Some(typ) = typ {
                         // check if it's the same
-                        if current != typ { emit(Simple::custom(span.clone(), 
-                            // TODO: change this to a custom reason
-                            "Lists must be completely consisted of the same type."
-                        )) }
+                        if current != typ { emit(ParserError::from_reason(span, ParserErrorReason::PatternListSameType(list.clone().unwrap()))); break; }
                     // otherwise initialize it
                     } else { typ = Some(current); }
                 }
@@ -364,11 +366,11 @@ impl CompoundPatternField {
             // key: pattern
             parse!(CompoundPatternKey + compound_pattern.clone())
             .then_ignore(just(OP_COLON))
-            .then(single_pattern)
+            .then(single_pattern.clone())
                     .map(|(key, pattern)| CompoundPatternField::Pattern { key, pattern }),
             // key as type @ bound = default
             parse!(CompoundPatternKey + compound_pattern)
-            .then(parse!(IdentifierInfo + expr, KW_AS, true))
+            .then(parse!(IdentifierInfo + expr, single_pattern, KW_AS, true))
                     .map(|(key, info)| CompoundPatternField::Simple { key, info }),
         )).map_with_span(map_span).labelled("compound pattern field")
     }
@@ -409,32 +411,44 @@ impl CompoundPatternKey {
 }
 
 
-fn bound(expr: impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn pattern_bound(s_pat: Box<S<SinglePattern>>) -> S<MultiPattern> {
     just(OP_AT)
-        .ignore_then(expr)
-        .labelled("pattern bound")
+        .ignore_then(parse!(MultiPattern + s_pat))
+        .labelled("pattern bound - pattern")
 }
 
-fn default(expr: impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone) -> impl Parser<Token, S<Expression>, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn expression_bound(expr: S<Expression>) -> S<Expression> {
+    just(OP_AT)
+        .ignore_then(expr)
+        .labelled("pattern bound - expression")
+}
+
+#[parser_fn]
+fn default(expr: S<Expression>) -> S<Expression> {
     just(OP_EQUAL)
         .ignore_then(expr)
         .labelled("pattern default")
 }
 
-fn rest() -> impl Parser<Token, (Option<S<Ident>>, Option<S<Type>>), Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn rest() -> (Option<S<Ident>>, Option<S<Type>>) {
     just(OP_DOT).repeated().exactly(3)
         .ignore_then(parse!(Ident).or_not())
         .then(typ().or_not())
         .labelled("rest pattern")
 }
 
-fn typ_tok(tok: Token) -> impl Parser<Token, S<Type>, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn typ_tok( #[no_convert] tok: Token ) -> S<Type> {
     just(tok)
         .ignore_then(parse!(Type))
         .labelled("pattern type")
 }
 
-fn typ() -> impl Parser<Token, S<Type>, Error = Simple<Token>> + Clone {
+#[parser_fn]
+fn typ() -> S<Type> {
     typ_tok(OP_COLON)
 }
 
@@ -475,7 +489,7 @@ mod tests {
                 // Slot: @ -1
                 s(28..37, CompoundPatternField::pattern(
                     IndexedPath::parse_offset(28, "Slot"),
-                    s(34..37, Bound(s(36..37, Expression::Temp)))
+                    s(34..37, Bound(Expression::parse_offset(36, "1")))
                 )),
                 // tag: {}
                 s(43..193, CompoundPatternField::pattern(
@@ -544,7 +558,7 @@ mod tests {
                 )),
             ])).into(),
             HashMap::from([
-                (69..70, (SimpleReason::Unexpected, Some(OP_STAR))),
+                (69..70, (ParserErrorReason::Unexpected, Some(OP_STAR))),
             ])
         )
     }
@@ -563,21 +577,49 @@ mod tests {
                 typ: None,
             }).into(),
             HashMap::from([
-                (37..38, (SimpleReason::Unexpected, Some(OP_STAR))),
+                (37..38, (ParserErrorReason::Unexpected, Some(OP_STAR))),
             ])
         )
     }
 
     #[test]
     fn semi_full_check() {
+        let array = vec![
+                        // _ @ 1
+                        s(76..82, Pattern::id(
+                            s(76..77, Ident::from("_")),
+                            s(78..82, IdentifierInfo::new(
+                                None, Some(s(79..82, MultiPattern::single(s(79..82, Pattern::Bound(Expression::parse_offset(81, "1"))).into()))), None
+                            ))
+                        )).into(),
+                        // {}
+                        s(92..174, DataPattern::compound(vec![
+                            // foo @ 1
+                            span(106..114, CompoundPatternField::simple(
+                                IndexedPath::parse_offset(106, "foo"),
+                                span(110..114, IdentifierInfo::new(None, Some(s(111..114, MultiPattern::single(s(111..114, Pattern::Bound(Expression::parse_offset(113, "1"))).into()))), None))
+                            )),
+                            // key as type
+                            span(128..139, CompoundPatternField::simple(
+                                IndexedPath::parse_offset(128, "key"),
+                                span(132..139, IdentifierInfo::new(Some(Type::parse_offset(135, "type")), None, None))
+                            )),
+                            // ...rest: _
+                            span(153..163, CompoundPatternField::Rest {
+                                id: Some(s(156..160, Ident::from("rest"))),
+                                typ: Some(Type::parse_offset(162, "_"))
+                            })
+                        ])).into(),
+                    ];
+
         test_parser(indoc! {r#"
                 // semi-full check
                 this.name<generics>(
-                    _name: type @ 1,
+                    _name: type @@ 1,
                     [
-                        _ @ 1,
+                        _ @@ 1,
                         {
-                            foo @ 1,
+                            foo @@ 1,
                             key as type,
                             ...rest: _,
                         }
@@ -586,55 +628,28 @@ mod tests {
             "#},
             parse!(SinglePattern),
             // semi-full check
-            s(19..180, Pattern::Enum {
+            s(19..183, Pattern::Enum {
                 // this.name<generics>()
                 path: s(19..38, GenericArgPath::new(
                     Path::parse_offset(19, "this.name"),
                     Some(GenericArguments::parse_offset(28, "<generics>"))
                 )),
-                pat: s(38..180, DataPattern::tuple(vec![
-                    // _name: type @ -3
-                    s(44..59, Pattern::id(
+                pat: s(38..183, DataPattern::tuple(vec![
+                    // _name: type @@ 1
+                    s(44..60, Pattern::id(
                         s(44..49, Ident::from("_name")),
-                        s(49..59, IdentifierInfo::new(
+                        s(49..60, IdentifierInfo::new(
                             Some(Type::parse_offset(51, "type")),
-                            Some(Expression::parse_offset(58, "1")),
+                            Some(s(57..60, MultiPattern::single(s(57..60, Pattern::Bound(Expression::parse_offset(59, "1"))).into()))),
                             None
                         ))
                     )).into(),
-                    // []
-                    s(65..177, DataPattern::list(vec![
-                        // _ @ -3
-                        s(75..80, Pattern::id(
-                            s(75..76, Ident::from("_")),
-                            s(77..80, IdentifierInfo::new(
-                                None, Some(Expression::parse_offset(79, "1")), None
-                            ))
-                        )).into(),
-                        // {}
-                        s(90..171, DataPattern::compound(vec![
-                            // foo @ -3
-                            span(104..111, CompoundPatternField::simple(
-                                IndexedPath::parse_offset(104, "foo"),
-                                span(108..111, IdentifierInfo::new(None, Some(Expression::parse_offset(110, "1")), None))
-                            )),
-                            // key as type
-                            span(125..136, CompoundPatternField::simple(
-                                IndexedPath::parse_offset(125, "key"),
-                                span(129..136, IdentifierInfo::new(Some(Type::parse_offset(132, "type")), None, None))
-                            )),
-                            // ...rest: _
-                            span(150..160, CompoundPatternField::Rest {
-                                id: Some(s(153..157, Ident::from("rest"))),
-                                typ: Some(Type::parse_offset(159, "_"))
-                            })
-                        ])).into(),
-                    ])).into()
+                    s(66..180, DataPattern::List(Ok(array.clone()))).into(),
                 ])),
                 typ: None,
             }).into(),
             HashMap::from([
-                (65..177, (SimpleReason::Custom("Lists must be completely consisted of the same type.".to_string()), None))
+                (66..180, (ParserErrorReason::PatternListSameType(array), None))
             ])
         )
     }
@@ -643,16 +658,16 @@ mod tests {
     fn indexed_paths() {
         test_parser(indoc! {r#"
                 {
-                    item.tag.Inventory[{Slot @ 1}].tag."has space"{id @ 1}.list[0]: ident
+                    item.tag.Inventory[{Slot @@ 1}].tag."has space"{id @@ 1}.list[0]: ident
                 }
             "#},
             parse!(SinglePattern),
-            s(0..77, DataPattern::compound(vec![
-                s(6..75, CompoundPatternField::pattern(
-                    IndexedPath::parse_offset(6, r#"item.tag.Inventory[{Slot @ 1}].tag."has space"{id @ 1}.list[0]"#),
-                    s(70..75, Pattern::id(
-                        s(70..75, "ident".into()),
-                        s(76..75, IdentifierInfo::empty())
+            s(0..79, DataPattern::compound(vec![
+                s(6..77, CompoundPatternField::pattern(
+                    IndexedPath::parse_offset(6, r#"item.tag.Inventory[{Slot @@ 1}].tag."has space"{id @@ 1}.list[0]"#),
+                    s(72..77, Pattern::id(
+                        s(72..77, "ident".into()),
+                        s(78..77, IdentifierInfo::empty())
                     ))
                 ))
             ])).into(),

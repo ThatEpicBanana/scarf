@@ -17,10 +17,10 @@ pub mod prelude {
 }
 
 pub fn test_parser<T>(
-    input: &str, 
-    parser: impl Parser<Token, T, Error = Simple<Token>>,
+    input: &str,
+    parser: parser!(T),
     expected: T,
-    expected_errors: HashMap<Span, (SimpleReason<Token, Span>, Option<Token>)>
+    expected_errors: HashMap<Span, (ParserErrorReason, Option<Token>)>
 ) where T: PartialEq + Eq + Debug + Clone {
     let len = input.len();
 
@@ -40,15 +40,15 @@ pub fn test_parser<T>(
     };
 
     match parser_errors.len().cmp(&expected_errors.len()) {
-        Ordering::Less => panic!("Not enough parser errors found (expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
+        Ordering::Less  => panic!("Not enough parser errors found (expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
         Ordering::Greater => panic!("Too many parser errors found (expected {}, found {}): {:#?}\nRecovered Syntax Tree: {:#?}", expected_errors.len(), parser_errors.len(), parser_errors, out),
         _ => (),
     }
 
     for error in parser_errors.clone() {
         // check if error matches an expected error
-        let res = if let Some((reason, tok)) = expected_errors.get(&error.span()) {
-            error.found() == tok.as_ref() && error.reason() == reason
+        let res = if let Some((reason, tok)) = expected_errors.get(&error.span) {
+            &error.found == tok && &error.reason == reason
         } else { false };
 
         // if it doesn't, panic

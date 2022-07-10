@@ -98,20 +98,22 @@ impl Path {
             // or a path with just a root
             .or(empty().to((false, vec![])))
         ).labelled("path")
-            .validate(|(root, ( absolute, parts )), span, emit| {
+            .map_with_span(map_span)
+            .validate(|Spanned(pathspan, (root, ( absolute, parts ))), span, emit| {
+                let path = Spanned::new(pathspan, Path { root, parts, absolute });
+
                 // if it's an absolute path
                 if absolute {
                     // check if it has an acceptable root
-                    match &root {
-                        &Spanned(_, PathRoot::Basket) => (),
-                        &Spanned(_, PathRoot::Part(PathPart::Id(_))) => (),
-                        // TODO: link to where it defines it as absolute
-                        x => emit(Simple::custom(span, format!("cannot have `{}` as the root of an absolute path", x.unspan_ref().to_string())))
+                    match &path.root {
+                        Spanned(_, PathRoot::Basket) => (),
+                        Spanned(_, PathRoot::Part(PathPart::Id(_))) => (),
+                        _ => emit(ParserError::from_reason(span, ParserErrorReason::AbsolutePathDisallowedRoot { path: path.clone() }))
                     }
                 }
 
-                Path { root, parts, absolute }
-            }).map_with_span(map_span)
+                path
+            })
     }
 
     /// Turns a vector of parts into a path, with the first part as the root
@@ -248,7 +250,7 @@ impl From<S<IndexedPathName>> for S<IndexedPathPart> {
     fn from(name: S<IndexedPathName>) -> Self {
         match name {
             Spanned(spn, name) => Spanned(spn.clone(), IndexedPathPart{
-                name: Spanned(spn, name), 
+                name: Spanned(spn, name),
                 modifiers: vec![]
             }),
         }
@@ -398,19 +400,22 @@ mod tests {
 
     #[test]
     fn absolute_path() {
-        test_parser(indoc! {r#"
-                super:absolute
-            "#},
-            parse!(Path),
+        let path =
             span(0..14, Path::new(
                 span(0..5, PathRoot::Part(PathPart::Super)),
                 vec![
                     span(6..14, "absolute".into())
                 ],
                 true
-            )),
+            ));
+
+        test_parser(indoc! {r#"
+                super:absolute
+            "#},
+            parse!(Path),
+            path.clone(),
             HashMap::from([
-                (0..14, (SimpleReason::Custom("cannot have `super` as the root of an absolute path".to_string()), None))
+                (0..14, (ParserErrorReason::AbsolutePathDisallowedRoot { path }, None))
             ])
         )
     }
@@ -418,43 +423,43 @@ mod tests {
     #[test]
     fn indexed_path() {
         test_parser(indoc! {r#"
-                item.tag.Inventory[{Slot @ 1}].tag."has space"{id @ 1}.list[0]
+                item.tag.Inventory[{Slot @@ 1}].tag."has space"{id @@ 1}.list[0]
             "#},
             parse!(IndexedPath)
                 .separated_by(just(op!(";"))).allow_trailing()
                 .then_ignore(end()),
             vec![
-                span(0..62, IndexedPath(vec![
+                span(0..64, IndexedPath(vec![
                     IndexedPathPart::from_name(
                         PathPart::parse_offset(0, "item").into()
                     ),
                     IndexedPathPart::from_name(
                         PathPart::parse_offset(5, "tag").into()
                     ),
-                    span(9..30, IndexedPathPart {
+                    span(9..31, IndexedPathPart {
                         name: PathPart::parse_offset(9, "Inventory").into(),
                         modifiers: vec![
-                            ok_span(18..30, IndexedPathModifier::CompoundIndex(
-                                CompoundPattern::parse_offset(19, "{Slot @ 1}")
+                            ok_span(18..31, IndexedPathModifier::CompoundIndex(
+                                CompoundPattern::parse_offset(19, "{Slot @@ 1}")
                             ))
                         ]
                     }),
                     IndexedPathPart::from_name(
-                        PathPart::parse_offset(31, "tag").into()
+                        PathPart::parse_offset(32, "tag").into()
                     ),
-                    span(35..54, IndexedPathPart {
-                        name: span(35..46, "has space".to_string()).into(),
+                    span(36..56, IndexedPathPart {
+                        name: span(36..47, "has space".to_string()).into(),
                         modifiers: vec![
-                            ok_span(46..54, IndexedPathModifier::CompoundBound(
-                                CompoundPattern::parse_offset(46, "{id @ 1}")
+                            ok_span(47..56, IndexedPathModifier::CompoundBound(
+                                CompoundPattern::parse_offset(47, "{id @@ 1}")
                             ))
                         ]
                     }),
-                    span(55..62, IndexedPathPart {
-                        name: PathPart::parse_offset(55, "list").into(),
+                    span(57..64, IndexedPathPart {
+                        name: PathPart::parse_offset(57, "list").into(),
                         modifiers: vec![
-                            ok_span(59..62, IndexedPathModifier::ExpressionIndex(
-                                Expression::parse_offset(60, "0")
+                            ok_span(61..64, IndexedPathModifier::ExpressionIndex(
+                                Expression::parse_offset(62, "0")
                             ))
                         ]
                     })
