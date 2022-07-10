@@ -59,7 +59,7 @@ fn number_separation() -> Result<(), Vec<Simple<char>>> {
 #[test]
 fn real_world() -> Result<(), Vec<Simple<char>>> {
     test(include_str!("real_world_test.sf"), vec![
-        KW_PUB, KW_FUNC, id("main"), OP_LPARA, OP_RPARA, OP_LCURLY,
+        KW_PUB, kw!("fn"), id("main"), OP_LPARA, OP_RPARA, OP_LCURLY,
             KW_AS, OP_AT, id("a"), OP_COLON,
                 id("clear"), OP_LPARA, string("tnt"), id("id"), OP_RPARA, OP_SEMI,
         OP_RCURLY
@@ -85,7 +85,7 @@ fn add_one() -> Result<(), Vec<Simple<char>>> {
 
         doc_out(" Adds one to the given number"),
 
-        kw!("pub"), kw!("func"), id("add_one"),
+        kw!("pub"), kw!("fn"), id("add_one"),
         op!("("), id("x"), op!(":"), id("int"), op!(")"),
         op!("=>"), id("x"), op!("+"), integer(1), op!(";"),
     ])

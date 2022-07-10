@@ -1,5 +1,5 @@
 // main function
-pub func main() {
+pub fn main() {
     // clears tnt from everyone
     as @a:
         clear("tnt"id);

@@ -64,7 +64,7 @@ kw_macro!{
     KW_IMPORT = "import",
     KW_MACRO = "macro", KW_PROC_MACRO = "proc_macro",
     KW_TYPE = "type",
-    KW_FUNC = "func",
+    KW_FN = "fn",
     KW_GET = "get", KW_SET = "set", // properties
 
     // statements
