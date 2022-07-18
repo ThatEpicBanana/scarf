@@ -2,8 +2,9 @@ use crate::parser::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
-     Path(S<GenericArgPath>),
-     Data(DataType),
+        Path(S<GenericArgPath>),
+        Data(  DataType ),
+    Function(S<FunctionType>)
 }
 
 #[parser_util(derive_parsable)]
@@ -15,7 +16,8 @@ impl Type {
     pub fn parser_inner(typ: S<Type>) -> S<Type> {
         choice((
             parse!(GenericArgPath + typ.clone()).map(Type::Path),
-                  parse!(DataType + typ        ).map(Type::Data)
+                  parse!(DataType + typ.clone()).map(Type::Data),
+              parse!(FunctionType + typ        ).map(Type::Function),
         ))
             .labelled("type")
             .map_with_span(map_span)
@@ -162,6 +164,6 @@ impl FunctionType {
                 .or_not()
         )
                 .map(|(parameters, return_value)| FunctionType { parameters, return_value })
-                .map_with_span(map_span)
+                .map_with_span(map_span).labelled("function type")
     }
 }
