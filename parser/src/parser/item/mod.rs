@@ -11,7 +11,7 @@ impl ItemVariant {
     /// Checks if an item variant accepts a token
     /// 
     /// # Panics
-    /// 
+    ///
     /// - If the token is not a keyword
     /// - If the keword is not one of KW_EXT, KW_STAT, or KW_ABST
     fn accepts(&self, tok: &Token) -> bool {
@@ -28,7 +28,7 @@ impl ItemVariant {
     }
 
     /// Gets name of variant for error reporting
-    fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         match &self {
             ItemVariant::InnerAttribute(_) => "Inner Attribute",
             ItemVariant::Error => "Error"

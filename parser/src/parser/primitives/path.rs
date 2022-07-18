@@ -160,7 +160,9 @@ pub struct GenericArgPath {
     generics: Option<S<Opt<GenericArguments>>>,
 }
 
-#[parser_util(derive_parsable)]
+#[parser_util(derive_parsable,
+    defaults(parse!(Type))
+)]
 impl GenericArgPath {
     /// Creates a new [`GenericPath`] using a spanned [`Path`] and [`GenericArguments`]
     pub fn new(path: S<Path>, generics: Option<S<Opt<GenericArguments>>>) -> Self {
@@ -168,9 +170,9 @@ impl GenericArgPath {
     }
 
     //ADDDOC
-    pub fn parser() -> S<GenericArgPath> {
+    pub fn parser_inner(typ: S<Type>) -> S<GenericArgPath> {
         parse!(Path)
-        .then(parse!(GenericArguments).or_not())
+        .then(parse!(GenericArguments + typ).or_not())
                 .map(|(path, generics)| GenericArgPath::new(path, generics))
                 .map_with_span(map_span)
     }

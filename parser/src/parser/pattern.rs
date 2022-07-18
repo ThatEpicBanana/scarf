@@ -101,7 +101,7 @@ impl SinglePattern {
         recursive(|single_pattern|
             Self::parser_inner(
                 expression_parser, 
-                single_pattern, 
+                single_pattern,
                 true
             )
         )
@@ -515,11 +515,11 @@ mod tests {
                                         // lvl as int
                                         span(133..143, CompoundPatternField::simple(
                                             IndexedPath::parse_offset(133, "lvl"),
-                                            span(137..143, IdentifierInfo::new(Some(s(140..143, Type::Temp)), None, None))
+                                            span(137..143, IdentifierInfo::new(Some(Type::parse_offset(140, "int")), None, None))
                                         )),
                                     ])),
                                     // : _
-                                    typ: Some(s(159..160, Type::Temp)),
+                                    typ: Some(Type::parse_offset(159, "_")),
                                 }).into(),
                                 // ...
                                 s(174..177, Pattern::Rest { typ: None, id: None }).into()
@@ -599,10 +599,10 @@ mod tests {
                                 IndexedPath::parse_offset(106, "foo"),
                                 span(110..114, IdentifierInfo::new(None, Some(s(111..114, MultiPattern::single(s(111..114, Pattern::Bound(Expression::parse_offset(113, "1"))).into()))), None))
                             )),
-                            // key as type
+                            // key as typ
                             span(128..139, CompoundPatternField::simple(
                                 IndexedPath::parse_offset(128, "key"),
-                                span(132..139, IdentifierInfo::new(Some(Type::parse_offset(135, "type")), None, None))
+                                span(132..139, IdentifierInfo::new(Some(Type::parse_offset(135, "Type")), None, None))
                             )),
                             // ...rest: _
                             span(153..163, CompoundPatternField::Rest {
@@ -615,12 +615,12 @@ mod tests {
         test_parser(indoc! {r#"
                 // semi-full check
                 this.name<generics>(
-                    _name: type @@ 1,
+                    _name: Type @@ 1,
                     [
                         _ @@ 1,
                         {
                             foo @@ 1,
-                            key as type,
+                            key as Type,
                             ...rest: _,
                         }
                     ],
@@ -635,11 +635,11 @@ mod tests {
                     Some(GenericArguments::parse_offset(28, "<generics>"))
                 )),
                 pat: s(38..183, DataPattern::tuple(vec![
-                    // _name: type @@ 1
+                    // _name: typ @@ 1
                     s(44..60, Pattern::id(
                         s(44..49, Ident::from("_name")),
                         s(49..60, IdentifierInfo::new(
-                            Some(Type::parse_offset(51, "type")),
+                            Some(Type::parse_offset(51, "Type")),
                             Some(s(57..60, MultiPattern::single(s(57..60, Pattern::Bound(Expression::parse_offset(59, "1"))).into()))),
                             None
                         ))

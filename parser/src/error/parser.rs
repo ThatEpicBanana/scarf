@@ -23,7 +23,7 @@ impl ParserErrorReason {
             Unclosed { delimiter, .. } => format!("unclosed {}", delimiter),
             PatternListSameType(_) => "pattern lists must be fully consisted of the same type of pattern".to_string(),
             ItemVariantDuplicatedModifier { modifier, .. } => format!("{} cannot be defined more than once", modifier),
-            ItemVariantDisallowedModifier { variant: _, modifier } => format!("{} cannot be defined on {}", modifier.unspan_ref(), todo!()), // TODO: add a function for variants to get their name
+            ItemVariantDisallowedModifier { variant, modifier } => format!("{} cannot be defined on {}", modifier.unspan_ref(), variant.name()),
             AbsolutePathDisallowedRoot { path } => format!("cannot have {} as the root of an absolute path", path.root.unspan_ref()),
         }
     }

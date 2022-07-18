@@ -6,9 +6,11 @@ pub struct GenericArgument {
     id: Option<S<Ident>>,
 }
 
-#[parser_util(derive_parsable)]
+#[parser_util(derive_parsable,
+    defaults(parse!(Type))
+)]
 impl GenericArgument {
-    /// Creates a Generic Argument out of a spanned [`Type`] and optional [`Ident`] 
+    /// Creates a Generic Argument out of a spanned [`Type`] and optional [`Ident`]
     pub fn new(typ: S<Type>, id: Option<S<Ident>>) -> GenericArgument {
         GenericArgument { typ: Box::new(typ), id }
     }
@@ -19,11 +21,11 @@ impl GenericArgument {
     }
 
     //ADDDOC
-    pub fn parser() -> S<GenericArgument> {
+    pub fn parser_inner(typ: S<Type>) -> S<GenericArgument> {
         parse!(Ident)
             .then_ignore(just(OP_EQUAL))
             .or_not()
-        .then(parse!(Type))
+        .then(typ)
                 .map(|(id, typ)| Self::new(typ, id))
                 .map_with_span(map_span)
     }
@@ -32,7 +34,9 @@ impl GenericArgument {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericArguments(Vec<S<GenericArgument>>);
 
-#[parser_util(derive_parsable)]
+#[parser_util(derive_parsable,
+    defaults(parse!(Type))
+)]
 impl GenericArguments {
     /// Creates a new [`GenericArguments`] from a list of spanned [`GenericArgument`]s
     pub fn new(args: Vec<S<GenericArgument>>) -> GenericArguments {
@@ -40,9 +44,9 @@ impl GenericArguments {
     }
 
     //ADDDOC
-    pub fn parser() -> S<Opt<GenericArguments>> {
+    pub fn parser_inner(typ: S<Type>) -> S<Opt<GenericArguments>> {
         // arg
-        parse!(GenericArgument)
+        parse!(GenericArgument + typ)
         // arg, arg,
         .separated_by(just(OP_COMM))
             .allow_trailing()

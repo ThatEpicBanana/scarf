@@ -1,6 +1,6 @@
 use crate::parser::prelude::{*, pattern::SinglePattern};
 
-use chumsky::{Stream, error::SimpleReason};
+use chumsky::Stream;
 use std::{fmt::Debug, collections::HashMap, cmp::Ordering};
 
 use pretty_assertions::assert_eq;
