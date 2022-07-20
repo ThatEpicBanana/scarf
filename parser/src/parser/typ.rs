@@ -2,9 +2,12 @@ use crate::parser::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
-        Path(S<GenericArgPath>),
-        Data(  DataType ),
-    Function(S<FunctionType>)
+        Path(GenericArgPath),
+    Function(FunctionType),
+// data
+       Tuple(Opt<TupleType>),
+        List(Opt<ListType>),
+    Compound(Opt<CompoundType>),
 }
 
 #[parser_util(derive_parsable)]
@@ -15,9 +18,12 @@ impl Type {
 
     pub fn parser_inner(typ: S<Type>) -> S<Type> {
         choice((
-            parse!(GenericArgPath + typ.clone()).map(Type::Path),
-                  parse!(DataType + typ.clone()).map(Type::Data),
-              parse!(FunctionType + typ        ).map(Type::Function),
+            parse!(GenericArgPath + typ.clone()).map(Spanned::unspan).map(Type::Path),
+              parse!(FunctionType + typ.clone()).map(Spanned::unspan).map(Type::Function),
+            // data
+                 parse!(TupleType + typ.clone()).map(Type::Tuple),
+                  parse!(ListType + typ.clone()).map(Type::List),
+              parse!(CompoundType + typ.clone()).map(Type::Compound),
         ))
             .labelled("type")
             .map_with_span(map_span)
@@ -26,32 +32,13 @@ impl Type {
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum DataType {
-        Tuple(S<Opt<   TupleType>>),
-         List(S<Opt<    ListType>>),
-     Compound(S<Opt<CompoundType>>),
-}
-
-#[parser_util(derive_parsable,
-    defaults(parse!(Type))
-)]
-impl DataType {
-    pub fn parser_inner(typ: S<Type>) -> DataType {
-        choice((
-             parse!(TupleType + typ.clone()).map(DataType::Tuple),
-              parse!(ListType + typ        ).map(DataType::List),
-        ))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TupleType(Vec<Box<S<Type>>>);
 
 #[parser_util(derive_parsable,
     defaults(parse!(Type))
 )]
 impl TupleType {
-    pub fn parser_inner(typ: S<Type>) -> S<Opt<TupleType>> {
+    pub fn parser_inner(typ: S<Type>) -> Opt<TupleType> {
         typ.map(Box::new)
             // typ, typ
             .separated_by(just(op!(",")))
@@ -59,7 +46,7 @@ impl TupleType {
                 .delimited_by(just(op!("(")), just(op!(")")))
                 .map(TupleType).labelled("tuple type")
                     // error handling
-                    .map_with_span(map_ok_span)
+                    .map(Opt::Ok)
                     .recover_with(nested_delimiters(
                              op!("("), op!(")"),
                         [
@@ -67,7 +54,7 @@ impl TupleType {
                             (op!("<"), op!(">")),
                             (op!("{"), op!("}")),
                         ],
-                    err_span))
+                    |_| Err))
     }
 }
 
@@ -78,13 +65,13 @@ pub struct ListType(Box<S<Type>>);
     defaults(parse!(Type))
 )]
 impl ListType {
-    pub fn parser_inner(typ: S<Type>) -> S<Opt<ListType>> {
+    pub fn parser_inner(typ: S<Type>) -> Opt<ListType> {
         typ.map(Box::new)
             // [typ]
             .delimited_by(just(op!("[")), just(op!("]")))
             .map(ListType).labelled("list type")
                 // error handling
-                .map_with_span(map_ok_span)
+                .map(Opt::Ok)
                 .recover_with(nested_delimiters(
                          op!("["), op!("]"),
                     [
@@ -92,7 +79,7 @@ impl ListType {
                         (op!("<"), op!(">")),
                         (op!("{"), op!("}")),
                     ],
-                err_span))
+                |_| Err))
     }
 }
 
@@ -123,7 +110,7 @@ pub struct CompoundType(Vec<S<CompoundTypeItem>>);
     defaults(parse!(Type))
 )]
 impl CompoundType {
-    pub fn parser_inner(typ: S<Type>) -> S<Opt<CompoundType>> {
+    pub fn parser_inner(typ: S<Type>) -> Opt<CompoundType> {
         parse!(CompoundTypeItem + typ)
             // typ, typ
             .separated_by(just(op!(",")))
@@ -131,7 +118,7 @@ impl CompoundType {
                 .delimited_by(just(op!("{")), just(op!("}")))
                 .map(CompoundType).labelled("compound type")
                     // error handling
-                    .map_with_span(map_ok_span)
+                    .map(Opt::Ok)
                     .recover_with(nested_delimiters(
                              op!("{"), op!("}"),
                         [
@@ -139,14 +126,35 @@ impl CompoundType {
                             (op!("["), op!("]")),
                             (op!("<"), op!(">"))
                         ],
-                    err_span))
+                    |_| Err))
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum DataType {
+        Tuple(Opt<   TupleType>),
+         List(Opt<    ListType>),
+     Compound(Opt<CompoundType>),
+}
+
+#[parser_util(derive_parsable,
+    defaults(parse!(Type))
+)]
+impl DataType {
+    pub fn parser_inner(typ: S<Type>) -> S<DataType> {
+        choice((
+               parse!(TupleType + typ.clone()).map(DataType::Tuple),
+                parse!(ListType + typ.clone()).map(DataType::List),
+            parse!(CompoundType + typ        ).map(DataType::Compound),
+        ))
+            .map_with_span(map_span)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct FunctionType {
-      parameters: DataType,
+      parameters: S<DataType>,
     return_value: Option<Box<S<Type>>>,
 }
 
@@ -165,5 +173,26 @@ impl FunctionType {
         )
                 .map(|(parameters, return_value)| FunctionType { parameters, return_value })
                 .map_with_span(map_span).labelled("function type")
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::prelude::*;
+
+    #[test]
+    fn paths() {
+        test_parser(indoc! {r#"
+                int;
+                generics<int>;
+            "#},
+            parse!(Type).separated_by(just(op!(";"))).allow_trailing(),
+            vec![
+
+            ],
+            HashMap::new()
+        )
     }
 }
