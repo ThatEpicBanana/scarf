@@ -31,8 +31,15 @@ impl GenericArgument {
     }
 }
 
+impl From<S<Type>> for S<GenericArgument> {
+    fn from(typ: S<Type>) -> Self {
+        let spn = typ.span();
+        Spanned::new(spn, GenericArgument::simple(typ))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct GenericArguments(Vec<S<GenericArgument>>);
+pub struct GenericArguments(pub Vec<S<GenericArgument>>);
 
 #[parser_util(derive_parsable,
     defaults(parse!(Type))

@@ -156,8 +156,8 @@ fn string_to_path_part(string: &str) -> PathPart {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericArgPath {
-    path: S<Path>,
-    generics: Option<S<Opt<GenericArguments>>>,
+    pub path: S<Path>,
+    pub generics: Option<S<Opt<GenericArguments>>>,
 }
 
 #[parser_util(derive_parsable,
