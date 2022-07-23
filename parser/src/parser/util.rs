@@ -39,6 +39,15 @@ impl<T> Spanned<T> {
     pub fn empty_span(value: T) -> Self {
         Self::new(None, value)
     }
+
+    /// Maps the inside `value` using the `mapper` closure
+    pub fn map<O, F>(self, mapper: F) -> Spanned<O>
+    where
+        F: FnOnce(T) -> O
+    {
+        let Spanned(span, value) = self;
+        Spanned::new(span, mapper(value))
+    }
 }
 
 impl<T> Deref for Spanned<T> {

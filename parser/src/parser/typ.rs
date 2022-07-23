@@ -50,6 +50,18 @@ impl Type {
     }
 }
 
+impl From<GenericArgPath> for Type {
+    fn from(v: GenericArgPath) -> Self {
+        Self::path(v)
+    }
+}
+
+impl From<FunctionType> for Type {
+    fn from(v: FunctionType) -> Self {
+        Self::function(v)
+    }
+}
+
 impl From<TupleType> for Type {
     fn from(tuple: TupleType) -> Self {
         Self::tuple(tuple)
@@ -127,8 +139,8 @@ impl ListType {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CompoundTypeItem {
-    ident:     S<Ident>,
-      typ: Box<S<Type>>,
+    ident: S<Ident>,
+      typ: S<Type>,
 }
 
 #[parser_util(derive_parsable,
@@ -138,7 +150,7 @@ impl CompoundTypeItem {
     pub fn parser_inner(typ: S<Type>) -> S<CompoundTypeItem> {
         parse!(Ident)
         .then_ignore(just(op!(":")))
-        .then(typ.map(Box::new))
+        .then(typ)
             .map(|( ident, typ )| CompoundTypeItem { ident, typ })
             .map_with_span(map_span).labelled("compound type key-value pair")
     }
@@ -302,6 +314,10 @@ mod tests {
             "#},
             parse!(Type).separated_by(just(op!(";"))).allow_trailing(),
             vec![
+                span(0..2, TupleType::empty().into()),
+                span(4..9, TupleType(vec![
+                    GenericArgPath::parse_offset(5, "int").map(Type::from),
+                ]).into()),
             ],
             HashMap::new(),
         )
