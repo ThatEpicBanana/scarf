@@ -7,7 +7,7 @@ use pretty_assertions::assert_eq;
 
 pub mod prelude {
     pub use crate::parser::prelude::*;
-    pub use super::test_parser;
+    pub use super::{test_parser, parser_test};
 
     pub use pretty_assertions::assert_eq;
     pub use indoc::indoc;
@@ -16,6 +16,7 @@ pub mod prelude {
     pub use std::collections::HashMap;
 }
 
+// TODO: make this return a result
 pub fn test_parser<T>(
     input: &str,
     parser: parser!(T),
@@ -60,6 +61,212 @@ pub fn test_parser<T>(
     }
 
 }
+
+
+/// A macro to make creating parser tests easier
+///
+/// # Examples
+///
+/// ```
+/// # use parser::tests::prelude::*;
+/// parser_test!(
+///     parse!(Type),
+///     (
+///         "simple",
+///         Type::parse("simple")
+///     ),
+///     (
+///         "errors<*>",
+///         // <-- expected output omitted -->
+/// #       span(0..9, Type::path(
+/// #           GenericArgPath {
+/// #               path: Path::parse_offset(0, "errors"),
+/// #               generics: Some(span(6..9, Err))
+/// #           }
+/// #       )).into(),
+///         {
+///             7..8 => Unexpected: op!("*")
+///         }
+///     )
+/// );
+/// ```
+///
+/// # Syntax
+///
+/// Represented in an unholy mixture of the minecraft wiki command syntax and rust macro syntax
+///
+/// ## Multiple Source
+///
+/// ```ignore
+/// parser_test!(
+///     <parser>,
+///     (
+///         <source>,
+///         <expected_output>,
+///        [<errors>]
+///     ),*
+/// )
+/// ```
+///
+/// ## Single Source
+///
+/// ```ignore
+/// parser_test!(
+///     <parser>,
+///     <source>,
+///     <expected_output>,
+///    [<errors>]
+/// )
+/// ```
+///
+/// ## Errors
+///
+/// ### Custom
+/// ```ignore
+/// {
+///     <span> => Unexpected: <token>,
+///     <span> => Reason: <reason>
+/// }
+/// ```
+///
+/// ### Normal
+///
+/// mirrors [`test_parser`]
+/// ```ignore
+/// [
+///     (<span>, (<reason>, <unexpected_token>))
+/// ]
+/// ```
+///
+#[macro_export]
+macro_rules! parser_test {
+    // multiple source, single parser
+    (
+        $parser:expr,
+        $( (
+            $source:expr,
+            $output:expr $(,
+            $errors:tt )?
+        ) ),*
+    ) => {
+        $(
+            parser_test!(
+                $parser,
+                $source,
+                $output $(,
+                $errors
+                )?
+            );
+        )*
+    };
+    // single source - no errors
+    // quick escape for performance
+    (
+        $parser:expr,
+        $source:expr,
+        $output:expr
+    ) => {
+        test_parser($source, $parser, $output, HashMap::new())
+    };
+    // single source - custom error syntax
+    (
+        $parser:expr,
+        $source:expr,
+        $output:expr $(,
+        {
+            // 1..2 => Unexpected: op!("*")
+            // 1..2 => Reason: PatternListSameType(array)
+            $($span:expr => $type:ident : $expr:expr),*
+        })?
+    ) => {
+        parser_test!(
+            $parser,
+            $source,
+            $output $(,
+            [
+                $(
+                    ($span, $crate::parser_test_error!($type: $expr))
+                ),*
+            ])?
+        )
+    };
+    // single source - normal error syntax
+    (
+        $parser:expr,
+        $source:expr,
+        $output:expr $(,
+        [
+            $(
+                // (1..2, (Unexpected,                 Some(op!("*"))))
+                // (1..2, (PatternListSameType(array), None))
+                ($span:expr, $tuple:expr)
+            ),*
+        ])?
+    ) => {
+        {
+            #[allow(unused_imports)]
+            use $crate::error::parser::ParserErrorReason::*;
+            test_parser($source, $parser, $output, $crate::parser_test_errors!(
+                $(
+                    $(
+                        ($span, $tuple)
+                    ),*
+                )?
+            ))
+        }
+    };
+} pub use parser_test;
+
+#[macro_export]
+macro_rules! parser_test_error {
+    (Unexpected: $token:expr) => {
+        (ParserErrorReason::Unexpected, Some($token))
+    };
+    (Reason: $expr:expr) => {
+        ($expr, None)
+    }
+}
+
+#[macro_export]
+macro_rules! parser_test_errors {
+    () => {
+        HashMap::new()
+    };
+    ($($expr:expr),*) => {
+        HashMap::from([
+            $($expr),*
+        ])
+    }
+}
+
+
+
+#[test]
+fn doctest() {
+    use crate::tests::prelude::*;
+    parser_test!(
+        parse!(Type),
+        (
+            "simple",
+            Type::parse("simple")
+        ),
+        (
+            "errors<*>",
+            span(0..9, Type::path(
+                GenericArgPath {
+                    path: Path::parse_offset(0, "errors"),
+                    generics: Some(span(6..9, Err))
+                }
+            )).into(),
+            {
+                7..8 => Unexpected: op!("*")
+            }
+        )
+    );
+}
+
+
+
 
 
 #[test]
